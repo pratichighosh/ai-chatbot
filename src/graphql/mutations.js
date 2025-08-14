@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client'
 
 export const CREATE_CHAT = gql`
-  mutation CreateChat($title: String!) {
-    insert_chats_one(object: { title: $title }) {
+  mutation CreateChat($title: String!, $user_id: uuid!) {
+    insert_chats_one(object: { title: $title, user_id: $user_id }) {
       id
       title
       user_id
@@ -13,11 +13,12 @@ export const CREATE_CHAT = gql`
 `
 
 export const INSERT_MESSAGE = gql`
-  mutation InsertMessage($chat_id: uuid!, $content: String!, $role: String!) {
+  mutation InsertMessage($chat_id: uuid!, $content: String!, $role: String!, $user_id: uuid!) {
     insert_messages_one(object: {
       chat_id: $chat_id,
       content: $content,
-      role: $role
+      role: $role,
+      user_id: $user_id
     }) {
       id
       content
@@ -32,6 +33,7 @@ export const SEND_MESSAGE_ACTION = gql`
   mutation SendMessage($chat_id: uuid!, $message: String!) {
     sendMessage(chat_id: $chat_id, message: $message) {
       message
+      success
     }
   }
 `
@@ -50,6 +52,7 @@ export const DELETE_CHAT = gql`
   mutation DeleteChat($id: uuid!) {
     delete_chats_by_pk(id: $id) {
       id
+      title
     }
   }
 `

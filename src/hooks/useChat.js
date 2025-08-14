@@ -1,3 +1,4 @@
+// ===== CORRECTED useChat.js - src/hooks/useChat.js =====
 import { useState, useCallback } from 'react'
 import { useMutation } from '@apollo/client'
 import { 
@@ -10,22 +11,19 @@ import { GET_CHATS } from '../graphql/queries'
 import { nhost } from '../utils/nhost'
 import toast from 'react-hot-toast'
 
-// Generate or get consistent user ID for this session
-const getSessionUserId = () => {
-  let userId = localStorage.getItem('session-user-id')
-  
-  if (!userId) {
-    // Try to get from auth first
-    const authUser = nhost.auth.getUser()
-    if (authUser?.id) {
-      userId = authUser.id
-    } else {
-      // Generate a consistent session ID
-      userId = 'user-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now().toString(36)
-    }
-    localStorage.setItem('session-user-id', userId)
+// Get authenticated user ID
+const getUserId = () => {
+  const authUser = nhost.auth.getUser()
+  if (authUser?.id) {
+    return authUser.id
   }
   
+  // Fallback for development
+  let userId = localStorage.getItem('session-user-id')
+  if (!userId) {
+    userId = 'user-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now().toString(36)
+    localStorage.setItem('session-user-id', userId)
+  }
   return userId
 }
 
@@ -43,7 +41,7 @@ export const useChat = () => {
 
   const createNewChat = useCallback(async (title = 'New Chat') => {
     try {
-      const userId = getSessionUserId()
+      const userId = getUserId()
       
       console.log('🆕 Creating chat for user:', userId)
       
@@ -84,9 +82,9 @@ export const useChat = () => {
     setIsTyping(true)
     
     try {
-      const userId = getSessionUserId()
+      const userId = getUserId()
       
-      console.log('📨 Sending message:', { chatId, message: message.trim(), userId })
+      console.log('📨 DEBUGGING: Sending message:', { chatId, message: message.trim(), userId })
       
       // Step 1: Insert user message
       const userMessageResult = await insertMessage({
@@ -103,33 +101,52 @@ export const useChat = () => {
         throw new Error('Failed to save user message: ' + userMessageResult.errors[0].message)
       }
 
-      console.log('✅ User message saved')
-      toast.success('Message sent!')
+      console.log('✅ DEBUGGING: User message saved')
 
-      // Step 2: Simulate AI response for demo
-      setTimeout(async () => {
-        try {
-          await insertMessage({
-            variables: {
-              chat_id: chatId,
-              content: "Hello! I'm your AI assistant. How can I help you today?",
-              role: 'assistant',
-              user_id: userId
-            }
-          })
-          console.log('🤖 AI response added')
-        } catch (err) {
-          console.log('AI response failed:', err)
-        }
-        setIsTyping(false)
-      }, 2000)
+      // Step 2: Call REAL AI through Hasura Action (NOT DEMO!)
+      console.log('🤖 DEBUGGING: Calling sendMessage Action...')
+      
+      const actionResult = await sendMessageAction({
+        variables: {
+          chat_id: chatId,
+          message: message.trim()
+        },
+        errorPolicy: 'all'
+      })
+
+      console.log('🔍 DEBUGGING: Full Action Result:', JSON.stringify(actionResult, null, 2))
+
+      if (actionResult.errors && actionResult.errors.length > 0) {
+        console.error('❌ DEBUGGING: Action errors:', actionResult.errors)
+        throw new Error('AI action failed: ' + actionResult.errors[0].message)
+      }
+
+      if (actionResult.data?.sendMessage?.message) {
+        console.log('✅ DEBUGGING: AI Response Received:', actionResult.data.sendMessage.message)
+        toast.success('🎉 AI responded!')
+      } else {
+        console.log('⚠️ DEBUGGING: Action completed but no AI message received')
+        console.log('📋 DEBUGGING: Action data:', actionResult.data)
+        toast.warning('🤖 AI action completed but no response received')
+      }
 
     } catch (error) {
-      console.error('❌ Error sending message:', error)
-      toast.error('Failed to send message: ' + error.message)
+      console.error('❌ DEBUGGING: Complete error in sendMessage:', error)
+      
+      // User-friendly error messages
+      if (error.message.includes('jwt') || error.message.includes('JWT')) {
+        toast.error('🔐 Session expired. Please refresh the page and login again.')
+      } else if (error.message.includes('permission') || error.message.includes('Permission')) {
+        toast.error('🚫 Permission denied. Please check your account permissions.')
+      } else if (error.message.includes('Network')) {
+        toast.error('🌐 Network error. Please check your internet connection.')
+      } else {
+        toast.error('❌ Message failed: ' + error.message)
+      }
+    } finally {
       setIsTyping(false)
     }
-  }, [insertMessage])
+  }, [insertMessage, sendMessageAction])
 
   const updateTitle = useCallback(async (chatId, newTitle) => {
     try {
