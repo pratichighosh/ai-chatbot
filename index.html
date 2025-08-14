@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- App Information -->
+    <title>AI Chatbot - Your Intelligent Conversation Partner</title>
+    <meta name="description" content="Experience seamless conversations with our advanced AI chatbot." />
+    
+    <!-- Theme and Visual -->
+    <meta name="theme-color" content="#3b82f6" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <!-- Prevent FOUC -->
+    <style>
+      html {
+        background: linear-gradient(135deg, #eff6ff 0%, #ffffff 50%, #f0f9ff 100%);
+        font-family: 'Inter', system-ui, sans-serif;
+      }
+      
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      
+      @media (prefers-color-scheme: dark) {
+        html {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+          color: #f1f5f9;
+        }
+      }
+      
+      .initial-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: inherit;
+        z-index: 9999;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(59, 130, 246, 0.1);
+        border-left: 4px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      #root:not(:empty) + .initial-loading {
+        display: none;
+      }
+    </style>
+  </head>
+  
+  <body>
+    <!-- App Root -->
+    <div id="root"></div>
+    
+    <!-- Initial Loading Screen -->
+    <div class="initial-loading">
+      <div class="loading-spinner"></div>
+    </div>
+    
+    <!-- No Script Fallback -->
+    <noscript>
+      <div style="text-align: center; padding: 50px; font-family: system-ui, sans-serif;">
+        <h1>JavaScript Required</h1>
+        <p>This application requires JavaScript to run. Please enable JavaScript in your browser and refresh the page.</p>
+      </div>
+    </noscript>
+    
+    <!-- Scripts -->
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Theme detection -->
+    <script>
+      (function() {
+        const theme = localStorage.getItem('theme') || 'system';
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        const effectiveTheme = theme === 'system' ? systemTheme : theme;
+        
+        if (effectiveTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+  </body>
+</html>
