@@ -1,4 +1,4 @@
-// ===== CORRECTED useChat.js - src/hooks/useChat.js =====
+// ===== FIXED useChat.js - src/hooks/useChat.js =====
 import { useState, useCallback } from 'react'
 import { useMutation } from '@apollo/client'
 import { 
@@ -8,24 +8,7 @@ import {
   UPDATE_CHAT_TITLE 
 } from '../graphql/mutations'
 import { GET_CHATS } from '../graphql/queries'
-import { nhost } from '../utils/nhost'
 import toast from 'react-hot-toast'
-
-// Get authenticated user ID
-const getUserId = () => {
-  const authUser = nhost.auth.getUser()
-  if (authUser?.id) {
-    return authUser.id
-  }
-  
-  // Fallback for development
-  let userId = localStorage.getItem('session-user-id')
-  if (!userId) {
-    userId = 'user-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now().toString(36)
-    localStorage.setItem('session-user-id', userId)
-  }
-  return userId
-}
 
 export const useChat = () => {
   const [isTyping, setIsTyping] = useState(false)
@@ -41,14 +24,11 @@ export const useChat = () => {
 
   const createNewChat = useCallback(async (title = 'New Chat') => {
     try {
-      const userId = getUserId()
-      
-      console.log('🆕 Creating chat for user:', userId)
+      console.log('🆕 Creating chat with title:', title)
       
       const { data, errors } = await createChat({
         variables: { 
-          title,
-          user_id: userId
+          title  // Hasura will auto-inject user_id from JWT
         },
         errorPolicy: 'all'
       })
@@ -63,7 +43,7 @@ export const useChat = () => {
       }
 
       console.log('✅ Chat created successfully:', data.insert_chats_one)
-      toast.success('Chat created!')
+      toast.success('✨ Chat created!')
       return data.insert_chats_one
       
     } catch (error) {
@@ -82,28 +62,27 @@ export const useChat = () => {
     setIsTyping(true)
     
     try {
-      const userId = getUserId()
+      console.log('📨 DEBUGGING: Sending message:', { chatId, message: message.trim() })
       
-      console.log('📨 DEBUGGING: Sending message:', { chatId, message: message.trim(), userId })
-      
-      // Step 1: Insert user message
+      // Step 1: Insert user message (Hasura auto-injects user_id)
       const userMessageResult = await insertMessage({
         variables: {
           chat_id: chatId,
           content: message.trim(),
-          role: 'user',
-          user_id: userId
+          role: 'user'
+          // NO user_id - Hasura handles this automatically from JWT
         },
         errorPolicy: 'all'
       })
 
       if (userMessageResult.errors && userMessageResult.errors.length > 0) {
+        console.error('❌ DEBUGGING: User message errors:', userMessageResult.errors)
         throw new Error('Failed to save user message: ' + userMessageResult.errors[0].message)
       }
 
-      console.log('✅ DEBUGGING: User message saved')
+      console.log('✅ DEBUGGING: User message saved successfully')
 
-      // Step 2: Call REAL AI through Hasura Action (NOT DEMO!)
+      // Step 2: Call REAL AI through Hasura Action
       console.log('🤖 DEBUGGING: Calling sendMessage Action...')
       
       const actionResult = await sendMessageAction({
@@ -118,16 +97,29 @@ export const useChat = () => {
 
       if (actionResult.errors && actionResult.errors.length > 0) {
         console.error('❌ DEBUGGING: Action errors:', actionResult.errors)
-        throw new Error('AI action failed: ' + actionResult.errors[0].message)
+        
+        const errorMsg = actionResult.errors[0].message
+        if (errorMsg.includes('JWT') || errorMsg.includes('jwt')) {
+          toast.error('🔐 Session expired. Please refresh and login again.')
+        } else if (errorMsg.includes('permission')) {
+          toast.error('🚫 Permission denied. Please check your login.')
+        } else {
+          toast.error('🤖 AI service error: ' + errorMsg)
+        }
+        
+        throw new Error('AI action failed: ' + errorMsg)
       }
 
       if (actionResult.data?.sendMessage?.message) {
         console.log('✅ DEBUGGING: AI Response Received:', actionResult.data.sendMessage.message)
         toast.success('🎉 AI responded!')
+      } else if (actionResult.data?.sendMessage?.success) {
+        console.log('✅ DEBUGGING: Action completed successfully')
+        toast.success('🤖 Message processed!')
       } else {
-        console.log('⚠️ DEBUGGING: Action completed but no AI message received')
+        console.log('⚠️ DEBUGGING: Action completed but no clear response')
         console.log('📋 DEBUGGING: Action data:', actionResult.data)
-        toast.warning('🤖 AI action completed but no response received')
+        toast.warning('🤖 AI action completed')
       }
 
     } catch (error) {
@@ -135,13 +127,15 @@ export const useChat = () => {
       
       // User-friendly error messages
       if (error.message.includes('jwt') || error.message.includes('JWT')) {
-        toast.error('🔐 Session expired. Please refresh the page and login again.')
+        toast.error('🔐 Session expired. Please refresh and login again.')
       } else if (error.message.includes('permission') || error.message.includes('Permission')) {
-        toast.error('🚫 Permission denied. Please check your account permissions.')
+        toast.error('🚫 Permission denied. Please check your account.')
+      } else if (error.message.includes('user_id')) {
+        toast.error('🔐 Authentication error. Please refresh and login again.')
       } else if (error.message.includes('Network')) {
-        toast.error('🌐 Network error. Please check your internet connection.')
+        toast.error('🌐 Network error. Please check your connection.')
       } else {
-        toast.error('❌ Message failed: ' + error.message)
+        toast.error('❌ Failed: ' + error.message)
       }
     } finally {
       setIsTyping(false)
@@ -156,7 +150,7 @@ export const useChat = () => {
           title: newTitle
         }
       })
-      toast.success('Chat title updated')
+      toast.success('✏️ Chat title updated')
     } catch (error) {
       console.error('❌ Failed to update title:', error)
       toast.error('Failed to update title')
