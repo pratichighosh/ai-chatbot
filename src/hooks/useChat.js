@@ -1,4 +1,4 @@
-// FIXED useChat.js - src/hooks/useChat.js
+// src/hooks/useChat.js
 import { useState, useCallback } from 'react'
 import { useMutation } from '@apollo/client'
 import { 
@@ -87,75 +87,63 @@ export const useChat = () => {
       console.log('✅ DEBUGGING: User message saved successfully')
 
       // Step 2: Call chatbot action
-      try {
-        console.log('🤖 DEBUGGING: Calling sendMessage Action...')
+      console.log('🤖 DEBUGGING: Calling sendMessage Action...')
+      const actionResult = await sendMessageAction({
+        variables: {
+          chat_id: chatId,
+          message: message.trim()
+        },
+        errorPolicy: 'all'
+      })
+
+      console.log('🔍 DEBUGGING: Full Action Result:', JSON.stringify(actionResult, null, 2))
+
+      if (actionResult.errors && actionResult.errors.length > 0) {
+        console.error('❌ Chatbot action error:', actionResult.errors)
+        throw new Error('Chatbot action failed: ' + actionResult.errors[0].message)
+      }
+
+      const aiResponse = actionResult.data?.sendMessage?.message
+      if (aiResponse && aiResponse !== "I'm having trouble responding right now.") {
+        console.log('✅ DEBUGGING: AI Response Received:', aiResponse)
         
-        const actionResult = await sendMessageAction({
+        // Save AI response as a message in the database
+        const aiMessageResult = await insertMessage({
           variables: {
             chat_id: chatId,
-            message: message.trim()
+            content: aiResponse,
+            role: 'assistant'
           },
           errorPolicy: 'all'
         })
 
-        console.log('🔍 DEBUGGING: Full Action Result:', actionResult)
-
-        if (actionResult.errors && actionResult.errors.length > 0) {
-          console.error('❌ Chatbot action error:', actionResult.errors)
-          throw new Error('Chatbot action failed: ' + actionResult.errors[0].message)
+        if (aiMessageResult.errors && aiMessageResult.errors.length > 0) {
+          console.error('❌ Failed to save AI response:', aiMessageResult.errors)
+          throw new Error('Failed to save AI response: ' + aiMessageResult.errors[0].message)
         }
 
-        if (actionResult.data?.sendMessage?.message) {
-          const aiResponse = actionResult.data.sendMessage.message
-          console.log('✅ DEBUGGING: AI Response Received:', aiResponse)
-          
-          // ✅ FIXED: Save AI response as a message in the database
-          const aiMessageResult = await insertMessage({
-            variables: {
-              chat_id: chatId,
-              content: aiResponse,
-              role: 'assistant'
-            },
-            errorPolicy: 'all'
-          })
-
-          if (aiMessageResult.errors && aiMessageResult.errors.length > 0) {
-            console.error('❌ Failed to save AI response:', aiMessageResult.errors)
-            throw new Error('Failed to save AI response: ' + aiMessageResult.errors[0].message)
-          }
-
-          console.log('✅ DEBUGGING: AI response saved to database successfully')
-          toast.success('🤖 AI responded!')
-        } else {
-          console.log('⚠️ Chatbot action returned no response')
-          toast.warning('AI action completed but no response received.')
-        }
-
-      } catch (actionError) {
-        console.error('❌ Chatbot action failed:', actionError.message)
-        
-        // Show specific error messages
-        if (actionError.message.includes('n8n') || actionError.message.includes('webhook')) {
-          toast.error('🔧 AI service unavailable. Please check n8n workflow configuration.')
-        } else if (actionError.message.includes('timeout')) {
-          toast.error('⏱️ AI response timeout. Please try again.')
-        } else if (actionError.message.includes('permission')) {
-          toast.error('🔐 Permission denied for AI action. Check Hasura permissions.')
-        } else {
-          toast.error('🤖 AI service error: ' + actionError.message)
-        }
+        console.log('✅ DEBUGGING: AI response saved to database successfully')
+        toast.success('🤖 AI responded!')
+        return aiResponse // Return the AI response for further use
+      } else {
+        console.warn('⚠️ Chatbot action returned no valid response:', actionResult)
+        toast('AI action completed but no valid response received.', { icon: '⚠️' })
+        return null
       }
 
     } catch (error) {
       console.error('❌ Error sending message:', error)
       
-      if (error.message.includes('permission')) {
-        toast.error('Permission denied. Please refresh and try again.')
-      } else if (error.message.includes('user_id')) {
-        toast.error('Authentication error. Please refresh the page.')
+      if (error.message.includes('n8n') || error.message.includes('webhook')) {
+        toast.error('🔧 AI service unavailable. Please check n8n workflow configuration.')
+      } else if (error.message.includes('timeout')) {
+        toast.error('⏱️ AI response timeout. Please try again.')
+      } else if (error.message.includes('permission')) {
+        toast.error('🔐 Permission denied for AI action. Check Hasura permissions.')
       } else {
-        toast.error('Failed to send message: ' + error.message)
+        toast.error('🤖 AI service error: ' + error.message)
       }
+      return null
     } finally {
       setIsTyping(false)
     }

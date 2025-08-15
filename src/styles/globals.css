@@ -380,3 +380,62 @@ body {
     box-shadow: none !important;
   }
 }
+/* ... (keep existing imports and :root) */
+
+/* Enhanced Aesthetics */
+body {
+  background: var(--bg-gradient);
+  font-family: 'Inter', sans-serif;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.glass {
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px) saturate(180%);
+  border-radius: 16px;
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+/* Neumorphic for uniqueness */
+.neumorphic {
+  background: linear-gradient(145deg, #f9fafb, #e5e7eb);
+  box-shadow: 5px 5px 10px #d1d5db, -5px -5px 10px #ffffff;
+  border-radius: 16px;
+}
+
+.dark .neumorphic {
+  background: linear-gradient(145deg, #1e293b, #334155);
+  box-shadow: 5px 5px 10px #0f172a, -5px -5px 10px #475569;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .container {
+    padding: 1rem;
+  }
+  .chat-window {
+    padding: 0.5rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .sidebar {
+    width: 280px;
+  }
+}
+
+/* Scrollbar enhancement */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* ... (keep existing animations) */
