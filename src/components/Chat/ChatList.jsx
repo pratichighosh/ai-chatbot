@@ -1,128 +1,142 @@
-// src/components/Chat/ChatList.jsx
 import React, { useState } from 'react'
-import { useQuery, useMutation } from '@apollo/client'
-import { PlusIcon, ChatBubbleLeftIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { useQuery } from '@apollo/client'
+import { PlusIcon, ChatBubbleLeftIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline'
 import { GET_CHATS } from '../../graphql/queries'
-import { DELETE_CHAT } from '../../graphql/mutations'
 import { useChat } from '../../hooks/useChat'
 import Button from '../UI/Button'
 import clsx from 'clsx'
-import toast from 'react-hot-toast'
 
 const ChatList = ({ onSelectChat, selectedChatId }) => {
-  const { data, loading, error, refetch } = useQuery(GET_CHATS, {
-    errorPolicy: 'all',
-    fetchPolicy: 'cache-and-network',
-  })
+  const { data, loading } = useQuery(GET_CHATS)
   const { createNewChat } = useChat()
   const [creatingChat, setCreatingChat] = useState(false)
-  const [deletingChatId, setDeletingChatId] = useState(null)
-
-  const [deleteChat] = useMutation(DELETE_CHAT, {
-    onCompleted: () => {
-      toast.success('Chat deleted successfully')
-      refetch()
-      if (selectedChatId === deletingChatId) onSelectChat(null, '')
-      setDeletingChatId(null)
-    },
-    onError: () => toast.error('Failed to delete chat')
-  })
-
-  const handleDelete = (chatId) => {
-    if (window.confirm('Are you sure you want to delete this chat?')) {
-      setDeletingChatId(chatId)
-      deleteChat({ variables: { id: chatId } })
-    }
-  }
 
   const handleNewChat = async () => {
     setCreatingChat(true)
     try {
       const newChat = await createNewChat()
       onSelectChat(newChat.id, newChat.title)
-      toast.success('New chat created!')
     } catch (error) {
-      toast.error('Failed to create chat.')
+      console.error('Failed to create chat:', error)
     } finally {
       setCreatingChat(false)
     }
   }
 
-  const formatTime = (timestamp) => {
-    // ... (keep existing)
+  const formatLastMessage = (messages) => {
+    if (!messages || messages.length === 0) return 'No messages yet'
+    const lastMessage = messages[0]
+    const preview = lastMessage.content.length > 50 
+      ? lastMessage.content.substring(0, 50) + '...'
+      : lastMessage.content
+    return `${lastMessage.role === 'user' ? 'You: ' : 'AI: '}${preview}`
   }
 
-  const formatLastMessage = (messages) => {
-    // ... (keep existing)
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diff = now - date
+    
+    if (diff < 60000) return 'Just now'
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`
+    
+    return date.toLocaleDateString()
   }
 
   return (
-    <div className="h-full glass-strong border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col lg:w-80 w-full max-w-xs lg:max-w-none">
+    <div className="w-80 glass-strong border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 lg:p-6 border-b border-gray-200/50 dark:border-gray-700/50">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg">
-            <ChatBubbleLeftIcon className="w-4 h-4 text-white" />
-          </div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">
-            Conversations
-          </h1>
-        </div>
+      <div className="p-6 border-b border-gray-200/50 dark:border-gray-700/50">
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">
+          Chats
+        </h1>
         <Button
           onClick={handleNewChat}
           loading={creatingChat}
-          className="w-full rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
+          className="w-full rounded-xl shadow-lg"
           size="lg"
         >
           <PlusIcon className="h-5 w-5 mr-2" />
-          {creatingChat ? 'Creating...' : 'New Conversation'}
+          New Chat
         </Button>
       </div>
 
       {/* Chat List */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {loading ? (
-          <div className="space-y-3">
+          <div className="p-6">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+              <div key={i} className="mb-4 animate-pulse">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+              </div>
             ))}
           </div>
-        ) : error ? (
-          <div className="text-center p-6 text-red-600 dark:text-red-400">
-            Failed to load conversations. Try refreshing.
-          </div>
-        ) : !data?.chats?.length ? (
-          <div className="text-center p-6 text-gray-500 dark:text-gray-400">
-            No conversations yet. Create one to start!
+        ) : data?.chats?.length === 0 ? (
+          <div className="flex items-center justify-center h-full p-6">
+            <div className="text-center">
+              <ChatBubbleLeftIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400">
+                No chats yet. Create your first chat to get started!
+              </p>
+            </div>
           </div>
         ) : (
-          data.chats.map((chat) => (
-            <div
-              key={chat.id}
-              onClick={() => onSelectChat(chat.id, chat.title)}
-              className={clsx(
-                'group p-4 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-lg hover:bg-white/80 dark:hover:bg-gray-800/80 glass flex items-start justify-between',
-                selectedChatId === chat.id && 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'
-              )}
-            >
-              <div className="flex-1">
-                <h3 className="font-medium text-sm truncate">{chat.title}</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {formatLastMessage(chat.messages)}
-                </p>
-                <span className="text-xs text-gray-400">{formatTime(chat.updated_at)}</span>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(chat.id);
-                }}
-                className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
+          <div className="p-3">
+            {data.chats.map((chat) => (
+              <div
+                key={chat.id}
+                onClick={() => onSelectChat(chat.id, chat.title)}
+                className={clsx(
+                  'p-4 rounded-xl cursor-pointer transition-all duration-200 mb-2 group hover:shadow-lg',
+                  selectedChatId === chat.id
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'
+                    : 'hover:bg-white/70 dark:hover:bg-gray-800/70 glass'
+                )}
               >
-                <TrashIcon className="h-4 w-4" />
-              </button>
-            </div>
-          ))
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h3 className={clsx(
+                      'font-medium truncate mb-1',
+                      selectedChatId === chat.id
+                        ? 'text-white'
+                        : 'text-gray-800 dark:text-gray-200'
+                    )}>
+                      {chat.title}
+                    </h3>
+                    <p className={clsx(
+                      'text-sm truncate',
+                      selectedChatId === chat.id
+                        ? 'text-blue-100'
+                        : 'text-gray-500 dark:text-gray-400'
+                    )}>
+                      {formatLastMessage(chat.messages)}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end ml-2">
+                    <span className={clsx(
+                      'text-xs',
+                      selectedChatId === chat.id
+                        ? 'text-blue-100'
+                        : 'text-gray-400'
+                    )}>
+                      {formatTime(chat.updated_at)}
+                    </span>
+                    <div className={clsx(
+                      'text-xs px-2 py-1 rounded-full mt-2',
+                      selectedChatId === chat.id
+                        ? 'bg-white/20 text-blue-100'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                    )}>
+                      {chat.messages_aggregate.aggregate.count}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
