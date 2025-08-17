@@ -58,22 +58,16 @@ export const useChat = () => {
       return
     }
 
-    const trimmedMessage = message.trim()
     setIsTyping(true)
     
     try {
-      console.log('📨 Sending REAL message:', { 
-        chatId, 
-        message: trimmedMessage, 
-        userId: user.id,
-        messageLength: trimmedMessage.length 
-      })
+      console.log('📨 Sending message:', { chatId, message: message.trim(), userId: user.id })
       
       // Step 1: Insert user message
       const userMessageResult = await insertMessage({
         variables: {
           chat_id: chatId,
-          content: trimmedMessage,
+          content: message.trim(),
           role: 'user'
         },
         errorPolicy: 'all'
@@ -85,95 +79,123 @@ export const useChat = () => {
 
       console.log('✅ User message saved')
 
-      // Step 2: Call AI with the EXACT message
+      // Step 2: Call Gemini AI through Hasura action
       try {
-        console.log('🤖 Calling AI with EXACT message:', trimmedMessage)
+        console.log('🤖 Calling Gemini AI through Hasura action...')
         
         const actionResult = await sendMessageAction({
           variables: {
             chat_id: chatId,
-            message: trimmedMessage  // Make sure this is the EXACT user message
+            message: message.trim()
           },
           errorPolicy: 'all'
         })
 
         console.log('🔍 Full Action Result:', JSON.stringify(actionResult, null, 2))
 
+        // Check the action response structure
         if (actionResult.data?.sendMessage) {
           const response = actionResult.data.sendMessage
-          console.log('✅ AI Action Response:', response)
+          console.log('✅ Gemini AI Action Response:', response)
           
-          // Check different possible response formats
-          let aiMessage = null
-          
-          if (typeof response === 'string') {
-            aiMessage = response.trim()
-          } else if (response.message && typeof response.message === 'string') {
-            aiMessage = response.message.trim()
-          } else if (response.response && response.response.message) {
-            aiMessage = response.response.message.trim()
-          }
-          
-          if (aiMessage && aiMessage.length > 0 && !aiMessage.includes('Hello there!')) {
-            console.log('✅ Got SPECIFIC AI response for message:', trimmedMessage)
-            console.log('✅ AI response:', aiMessage.substring(0, 100) + '...')
+          // Check if the webhook already saved the message to database
+          if (response.success && response.message) {
+            console.log('✅ Gemini AI responded:', response.message)
             
-            // Insert the AI response
-            const aiMessageResult = await insertMessage({
-              variables: {
-                chat_id: chatId,
-                content: aiMessage,
-                role: 'assistant'
-              },
-              errorPolicy: 'all'
-            })
-
-            if (aiMessageResult.errors && aiMessageResult.errors.length > 0) {
-              console.error('❌ Failed to save AI message:', aiMessageResult.errors)
-              toast.error('AI responded but failed to save the message')
+            // Check if message was already saved by webhook (success = true)
+            if (response.success === true) {
+              console.log('✅ AI message already saved by webhook')
+              toast.success('🤖 Gemini AI responded!')
             } else {
-              console.log('✅ AI message saved successfully')
-              toast.success('🤖 AI responded!')
+              // Manually save if webhook couldn't save to database
+              console.log('⚠️ Webhook responded but didn\'t save to DB, saving manually...')
+              
+              try {
+                const aiMessageResult = await insertMessage({
+                  variables: {
+                    chat_id: chatId,
+                    content: response.message,
+                    role: 'assistant'
+                  },
+                  errorPolicy: 'all'
+                })
+
+                if (aiMessageResult.errors && aiMessageResult.errors.length > 0) {
+                  console.error('❌ Failed to manually save AI message:', aiMessageResult.errors)
+                  toast.error('AI responded but failed to save the message')
+                } else {
+                  console.log('✅ AI message manually saved to database')
+                  toast.success('🤖 Gemini AI responded!')
+                }
+              } catch (insertError) {
+                console.error('❌ Error manually inserting AI message:', insertError)
+                toast.error('AI responded but couldn\'t save the message')
+              }
             }
           } else {
-            console.log('⚠️ Got generic or invalid AI response:', aiMessage)
-            throw new Error('AI gave generic response instead of specific answer')
+            console.log('⚠️ AI action unsuccessful or no message:', response)
+            throw new Error(response.message || 'Gemini AI did not provide a response')
           }
         } else if (actionResult.errors) {
           console.log('⚠️ Action errors:', actionResult.errors)
-          throw new Error('AI service error: ' + actionResult.errors[0].message)
+          throw new Error('Gemini AI service error: ' + actionResult.errors[0].message)
         } else {
-          console.log('⚠️ No response from action')
-          throw new Error('No response from AI service')
+          console.log('⚠️ No response from Gemini AI action')
+          throw new Error('No response from Gemini AI service')
         }
 
       } catch (actionError) {
-        console.log('⚠️ AI action failed:', actionError.message)
+        console.log('⚠️ Gemini AI action failed:', actionError.message)
         
-        // Add specific error message that includes the user's question
-        const errorMessage = `I had trouble processing your question: "${trimmedMessage}". Please try rephrasing it or ask something else. 🤖`
+        // Provide user-friendly error messages
+        let errorMessage = "I'm having trouble responding right now. "
         
+        if (actionError.message.includes('network') || actionError.message.includes('timeout')) {
+          errorMessage += "Please check your internet connection and try again."
+          toast.error('🌐 Network error. Please check your connection.')
+        } else if (actionError.message.includes('rate limit') || actionError.message.includes('quota')) {
+          errorMessage += "I'm experiencing high demand. Please wait a moment before trying again."
+          toast.error('⏱️ Too many requests. Please wait a moment.')
+        } else if (actionError.message.includes('authentication') || actionError.message.includes('API key')) {
+          errorMessage += "There's an authentication issue with the AI service."
+          toast.error('🔐 Authentication error with AI service.')
+        } else if (actionError.message.includes('safety') || actionError.message.includes('blocked')) {
+          errorMessage += "Your message was blocked by safety filters. Please try rephrasing."
+          toast.error('🛡️ Message blocked by safety filters.')
+        } else {
+          errorMessage += "This might be due to high demand. Please try again in a moment."
+          toast.error('🤖 AI service temporarily unavailable.')
+        }
+        
+        // Insert helpful fallback message
         setTimeout(async () => {
           try {
             await insertMessage({
               variables: {
                 chat_id: chatId,
-                content: errorMessage,
+                content: errorMessage + " 🤖\n\nIn the meantime, feel free to:\n• Try rephrasing your question\n• Ask about a different topic\n• Check back in a few minutes",
                 role: 'assistant'
               }
             })
-            console.log('🤖 Specific error message added')
+            console.log('🤖 Helpful fallback message added')
           } catch (err) {
-            console.log('❌ Error message failed:', err)
+            console.log('❌ Fallback message failed:', err)
           }
-        }, 1000)
-        
-        toast.error('AI service temporarily unavailable.')
+        }, 1500)
       }
 
     } catch (error) {
       console.error('❌ Error sending message:', error)
-      toast.error('Failed to send message. Please try again.')
+      
+      if (error.message.includes('permission')) {
+        toast.error('Permission denied. Please refresh and try again.')
+      } else if (error.message.includes('user_id')) {
+        toast.error('Authentication error. Please refresh the page.')
+      } else if (error.message.includes('network')) {
+        toast.error('Network error. Please check your connection.')
+      } else {
+        toast.error('Failed to send message. Please try again.')
+      }
     } finally {
       setIsTyping(false)
     }
