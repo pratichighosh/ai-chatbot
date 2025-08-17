@@ -58,16 +58,22 @@ export const useChat = () => {
       return
     }
 
+    const trimmedMessage = message.trim()
     setIsTyping(true)
     
     try {
-      console.log('📨 Sending message:', { chatId, message: message.trim(), userId: user.id })
+      console.log('📨 Sending REAL message:', { 
+        chatId, 
+        message: trimmedMessage, 
+        userId: user.id,
+        messageLength: trimmedMessage.length 
+      })
       
       // Step 1: Insert user message
       const userMessageResult = await insertMessage({
         variables: {
           chat_id: chatId,
-          content: message.trim(),
+          content: trimmedMessage,
           role: 'user'
         },
         errorPolicy: 'all'
@@ -79,33 +85,44 @@ export const useChat = () => {
 
       console.log('✅ User message saved')
 
-      // Step 2: Call AI chatbot action
+      // Step 2: Call AI with the EXACT message
       try {
-        console.log('🤖 Calling AI through Hasura action...')
+        console.log('🤖 Calling AI with EXACT message:', trimmedMessage)
         
         const actionResult = await sendMessageAction({
           variables: {
             chat_id: chatId,
-            message: message.trim()
+            message: trimmedMessage  // Make sure this is the EXACT user message
           },
           errorPolicy: 'all'
         })
 
-        console.log('🔍 Action Result:', actionResult)
+        console.log('🔍 Full Action Result:', JSON.stringify(actionResult, null, 2))
 
-        // Check if action was successful
         if (actionResult.data?.sendMessage) {
           const response = actionResult.data.sendMessage
           console.log('✅ AI Action Response:', response)
           
-          if (response.success && response.message) {
-            console.log('✅ AI responded:', response.message)
+          // Check different possible response formats
+          let aiMessage = null
+          
+          if (typeof response === 'string') {
+            aiMessage = response.trim()
+          } else if (response.message && typeof response.message === 'string') {
+            aiMessage = response.message.trim()
+          } else if (response.response && response.response.message) {
+            aiMessage = response.response.message.trim()
+          }
+          
+          if (aiMessage && aiMessage.length > 0 && !aiMessage.includes('Hello there!')) {
+            console.log('✅ Got SPECIFIC AI response for message:', trimmedMessage)
+            console.log('✅ AI response:', aiMessage.substring(0, 100) + '...')
             
-            // Step 3: Insert AI response message directly
+            // Insert the AI response
             const aiMessageResult = await insertMessage({
               variables: {
                 chat_id: chatId,
-                content: response.message,
+                content: aiMessage,
                 role: 'assistant'
               },
               errorPolicy: 'all'
@@ -115,12 +132,12 @@ export const useChat = () => {
               console.error('❌ Failed to save AI message:', aiMessageResult.errors)
               toast.error('AI responded but failed to save the message')
             } else {
-              console.log('✅ AI message saved to database')
+              console.log('✅ AI message saved successfully')
               toast.success('🤖 AI responded!')
             }
           } else {
-            console.log('⚠️ AI action unsuccessful or no message:', response)
-            throw new Error(response.message || 'AI did not provide a response')
+            console.log('⚠️ Got generic or invalid AI response:', aiMessage)
+            throw new Error('AI gave generic response instead of specific answer')
           }
         } else if (actionResult.errors) {
           console.log('⚠️ Action errors:', actionResult.errors)
@@ -133,52 +150,30 @@ export const useChat = () => {
       } catch (actionError) {
         console.log('⚠️ AI action failed:', actionError.message)
         
-        // Provide user-friendly error messages
-        let errorMessage = "I'm having trouble responding right now. "
+        // Add specific error message that includes the user's question
+        const errorMessage = `I had trouble processing your question: "${trimmedMessage}". Please try rephrasing it or ask something else. 🤖`
         
-        if (actionError.message.includes('network') || actionError.message.includes('timeout')) {
-          errorMessage += "Please check your internet connection and try again."
-          toast.error('Network error. Please check your connection.')
-        } else if (actionError.message.includes('rate limit')) {
-          errorMessage += "I'm receiving too many requests. Please wait a moment before trying again."
-          toast.error('Too many requests. Please wait a moment.')
-        } else if (actionError.message.includes('authentication')) {
-          errorMessage += "There's an authentication issue. Please refresh the page and try again."
-          toast.error('Authentication error. Please refresh and try again.')
-        } else {
-          errorMessage += "This might be due to high demand. Please try again in a moment."
-          toast.error('AI service temporarily unavailable.')
-        }
-        
-        // Insert fallback error message
         setTimeout(async () => {
           try {
             await insertMessage({
               variables: {
                 chat_id: chatId,
-                content: errorMessage + " 🤖",
+                content: errorMessage,
                 role: 'assistant'
               }
             })
-            console.log('🤖 Error fallback message added')
+            console.log('🤖 Specific error message added')
           } catch (err) {
-            console.log('❌ Fallback message failed:', err)
+            console.log('❌ Error message failed:', err)
           }
         }, 1000)
+        
+        toast.error('AI service temporarily unavailable.')
       }
 
     } catch (error) {
       console.error('❌ Error sending message:', error)
-      
-      if (error.message.includes('permission')) {
-        toast.error('Permission denied. Please refresh and try again.')
-      } else if (error.message.includes('user_id')) {
-        toast.error('Authentication error. Please refresh the page.')
-      } else if (error.message.includes('network')) {
-        toast.error('Network error. Please check your connection.')
-      } else {
-        toast.error('Failed to send message. Please try again.')
-      }
+      toast.error('Failed to send message. Please try again.')
     } finally {
       setIsTyping(false)
     }
