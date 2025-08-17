@@ -1,3 +1,4 @@
+// Fixed ChatList.jsx - Remove days_old reference
 import React, { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client'
 import { PlusIcon, ChatBubbleLeftIcon, TrashIcon, PencilIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline'
@@ -98,17 +99,26 @@ const ChatList = ({ onSelectChat, selectedChatId }) => {
     setActiveMenu(null)
   }
 
+  // FIXED: formatTime function without days_old reference
   const formatTime = (timestamp) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diff = now - date
-    
-    if (diff < 60000) return 'Just now'
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
-    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`
-    
-    return date.toLocaleDateString()
+    try {
+      const date = new Date(timestamp)
+      const now = new Date()
+      const diffMs = now - date
+      const diffMinutes = Math.floor(diffMs / 60000)
+      const diffHours = Math.floor(diffMs / 3600000)
+      const diffDays = Math.floor(diffMs / 86400000)
+      
+      if (diffMinutes < 1) return 'Just now'
+      if (diffMinutes < 60) return `${diffMinutes}m ago`
+      if (diffHours < 24) return `${diffHours}h ago`
+      if (diffDays < 7) return `${diffDays}d ago`
+      
+      return date.toLocaleDateString()
+    } catch (error) {
+      console.error('Error formatting time:', error)
+      return 'Unknown'
+    }
   }
 
   const formatLastMessage = (messages) => {
@@ -136,7 +146,7 @@ const ChatList = ({ onSelectChat, selectedChatId }) => {
               Conversations
             </h1>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {data?.chats?.length || 0} total chats
+              Powered by Gemini AI ✨
             </p>
           </div>
         </div>
@@ -195,7 +205,7 @@ const ChatList = ({ onSelectChat, selectedChatId }) => {
                 No conversations yet
               </h3>
               <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                Start your first conversation with AI! Click the button above to begin. 🚀
+                Start your first conversation with Gemini AI! Click the button above to begin. 🚀
               </p>
             </div>
           </div>
@@ -347,6 +357,17 @@ const ChatList = ({ onSelectChat, selectedChatId }) => {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-blue-50/30 to-purple-50/30 dark:from-gray-800/30 dark:to-purple-900/30">
+        <div className="text-xs text-gray-500 dark:text-gray-400 text-center space-y-1">
+          <div>{data?.chats?.length || 0} total conversations</div>
+          <div className="flex items-center justify-center space-x-1">
+            <span>⚡ Powered by</span>
+            <span className="font-semibold text-blue-600 dark:text-blue-400">Google Gemini</span>
+          </div>
+        </div>
       </div>
 
       {/* Delete Confirmation Modal */}
