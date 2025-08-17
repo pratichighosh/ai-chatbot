@@ -70,7 +70,6 @@ export const INSERT_MESSAGE = gql`
       user_id
       chat_id
       created_at
-      updated_at
     }
   }
 `;
@@ -79,13 +78,13 @@ export const UPDATE_MESSAGE = gql`
   mutation UpdateMessage($id: uuid!, $content: String!) {
     update_messages_by_pk(
       pk_columns: { id: $id }, 
-      _set: { content: $content, updated_at: "now()" }
+      _set: { content: $content }
     ) {
       id
       content
       role
-      updated_at
       chat_id
+      created_at
     }
   }
 `;
