@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client'
+import { gql } from '@apollo/client';
 
 // Chat Management Mutations
 export const CREATE_CHAT = gql`
@@ -16,7 +16,7 @@ export const CREATE_CHAT = gql`
       }
     }
   }
-`
+`;
 
 export const UPDATE_CHAT_TITLE = gql`
   mutation UpdateChatTitle($id: uuid!, $title: String!) {
@@ -27,7 +27,7 @@ export const UPDATE_CHAT_TITLE = gql`
       user_id
     }
   }
-`
+`;
 
 export const DELETE_CHAT = gql`
   mutation DeleteChat($id: uuid!) {
@@ -42,7 +42,7 @@ export const DELETE_CHAT = gql`
       updated_at
     }
   }
-`
+`;
 
 export const UPDATE_CHAT_TIMESTAMP = gql`
   mutation UpdateChatTimestamp($id: uuid!) {
@@ -54,7 +54,7 @@ export const UPDATE_CHAT_TIMESTAMP = gql`
       updated_at
     }
   }
-`
+`;
 
 // Message Management Mutations
 export const INSERT_MESSAGE = gql`
@@ -73,7 +73,7 @@ export const INSERT_MESSAGE = gql`
       updated_at
     }
   }
-`
+`;
 
 export const UPDATE_MESSAGE = gql`
   mutation UpdateMessage($id: uuid!, $content: String!) {
@@ -88,7 +88,7 @@ export const UPDATE_MESSAGE = gql`
       chat_id
     }
   }
-`
+`;
 
 export const DELETE_MESSAGE = gql`
   mutation DeleteMessage($id: uuid!) {
@@ -100,7 +100,7 @@ export const DELETE_MESSAGE = gql`
       created_at
     }
   }
-`
+`;
 
 export const DELETE_MESSAGES_BY_CHAT = gql`
   mutation DeleteMessagesByChat($chat_id: uuid!) {
@@ -113,7 +113,7 @@ export const DELETE_MESSAGES_BY_CHAT = gql`
       }
     }
   }
-`
+`;
 
 // AI Service Actions
 export const SEND_MESSAGE_ACTION = gql`
@@ -123,7 +123,7 @@ export const SEND_MESSAGE_ACTION = gql`
       success
     }
   }
-`
+`;
 
 // Batch Operations
 export const INSERT_MULTIPLE_MESSAGES = gql`
@@ -139,7 +139,7 @@ export const INSERT_MULTIPLE_MESSAGES = gql`
       }
     }
   }
-`
+`;
 
 export const BULK_DELETE_CHATS = gql`
   mutation BulkDeleteChats($chat_ids: [uuid!]!) {
@@ -154,7 +154,7 @@ export const BULK_DELETE_CHATS = gql`
       }
     }
   }
-`
+`;
 
 // Chat Search and Filter
 export const ARCHIVE_CHAT = gql`
@@ -169,7 +169,7 @@ export const ARCHIVE_CHAT = gql`
       updated_at
     }
   }
-`
+`;
 
 export const SET_CHAT_FAVORITE = gql`
   mutation SetChatFavorite($id: uuid!, $is_favorite: Boolean = true) {
@@ -183,9 +183,9 @@ export const SET_CHAT_FAVORITE = gql`
       updated_at
     }
   }
-`
+`;
 
-// Message Reactions (if you want to add this feature)
+// Message Reactions
 export const ADD_MESSAGE_REACTION = gql`
   mutation AddMessageReaction($message_id: uuid!, $reaction: String!) {
     insert_message_reactions_one(object: {
@@ -199,7 +199,7 @@ export const ADD_MESSAGE_REACTION = gql`
       created_at
     }
   }
-`
+`;
 
 export const REMOVE_MESSAGE_REACTION = gql`
   mutation RemoveMessageReaction($message_id: uuid!, $reaction: String!) {
@@ -211,7 +211,7 @@ export const REMOVE_MESSAGE_REACTION = gql`
       affected_rows
     }
   }
-`
+`;
 
 // User Preferences
 export const UPDATE_USER_PREFERENCES = gql`
@@ -225,7 +225,7 @@ export const UPDATE_USER_PREFERENCES = gql`
       updated_at
     }
   }
-`
+`;
 
 // Chat Statistics
 export const UPDATE_CHAT_STATS = gql`
@@ -241,7 +241,7 @@ export const UPDATE_CHAT_STATS = gql`
       updated_at
     }
   }
-`
+`;
 
 // Error Recovery
 export const RETRY_FAILED_MESSAGE = gql`
@@ -254,7 +254,7 @@ export const RETRY_FAILED_MESSAGE = gql`
       success
     }
   }
-`
+`;
 
 // Export Management
 export const EXPORT_CHAT_DATA = gql`
@@ -265,21 +265,21 @@ export const EXPORT_CHAT_DATA = gql`
       expires_at
     }
   }
-`
+`;
 
 // Maintenance Operations (Admin only)
 export const CLEANUP_OLD_MESSAGES = gql`
-  mutation CleanupOldMessages($days_old: Int = 90) {
+  mutation CleanupOldMessages($daysOld: Int = 90) {
     delete_messages(where: {
-      created_at: { _lt: "now() - interval '${days_old} days'" },
+      created_at: { _lt: "now() - interval '$1 days'" },
       role: { _eq: "system" }
     }) {
       affected_rows
     }
   }
-`
+`;
 
-// Chat Templates (for future use)
+// Chat Templates
 export const CREATE_CHAT_FROM_TEMPLATE = gql`
   mutation CreateChatFromTemplate($template_id: uuid!, $title: String!) {
     insert_chats_one(object: {
@@ -297,9 +297,9 @@ export const CREATE_CHAT_FROM_TEMPLATE = gql`
       }
     }
   }
-`
+`;
 
-// Conversation Sharing (for future use)
+// Conversation Sharing
 export const SHARE_CONVERSATION = gql`
   mutation ShareConversation($chat_id: uuid!, $share_settings: jsonb!) {
     insert_shared_chats_one(object: {
@@ -317,7 +317,7 @@ export const SHARE_CONVERSATION = gql`
       }
     }
   }
-`
+`;
 
 export const REVOKE_CHAT_SHARE = gql`
   mutation RevokeChatShare($share_token: String!) {
@@ -325,4 +325,4 @@ export const REVOKE_CHAT_SHARE = gql`
       affected_rows
     }
   }
-`
+`;
