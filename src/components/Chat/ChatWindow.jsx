@@ -1,204 +1,354 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { useSubscription } from '@apollo/client'
-import { SUBSCRIBE_MESSAGES } from '../../graphql/subscriptions'
-import MessageBubble from './MessageBubble'
-import TypingIndicator from './TypingIndicator'
-import { useChat } from '../../hooks/useChat'
-import { MESSAGE_ROLES } from '../../utils/constants'
-import { ChevronDownIcon } from '@heroicons/react/24/outline'
+import { useState, useCallback } from 'react'
+import { useMutation } from '@apollo/client'
+import { useUserData } from '@nhost/react'
+import { 
+  CREATE_CHAT, 
+  INSERT_MESSAGE, 
+  SEND_MESSAGE_ACTION,
+  UPDATE_CHAT_TITLE 
+} from '../graphql/mutations'
+import { GET_CHATS } from '../graphql/queries'
+import toast from 'react-hot-toast'
 
-const ChatWindow = ({ chatId, chatTitle }) => {
-  const { data, loading } = useSubscription(SUBSCRIBE_MESSAGES, {
-    variables: { chat_id: chatId },
-    skip: !chatId
+export const useChat = () => {
+  const [isTyping, setIsTyping] = useState(false)
+  const [lastMessageId, setLastMessageId] = useState(null)
+  const user = useUserData()
+  
+  const [createChat] = useMutation(CREATE_CHAT, {
+    refetchQueries: [{ query: GET_CHATS }],
+    awaitRefetchQueries: true,
+    errorPolicy: 'all'
   })
-  const { isTyping } = useChat()
-  const messagesEndRef = useRef(null)
-  const messagesContainerRef = useRef(null)
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false)
-  const [isNearBottom, setIsNearBottom] = useState(true)
+  
+  const [insertMessage] = useMutation(INSERT_MESSAGE, {
+    errorPolicy: 'all'
+  })
+  
+  const [sendMessageAction] = useMutation(SEND_MESSAGE_ACTION, {
+    errorPolicy: 'all'
+  })
+  
+  const [updateChatTitle] = useMutation(UPDATE_CHAT_TITLE, {
+    refetchQueries: [{ query: GET_CHATS }],
+    errorPolicy: 'all'
+  })
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  const handleScroll = () => {
-    if (messagesContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-      const nearBottom = distanceFromBottom < 100
+  const createNewChat = useCallback(async (title = 'New Chat') => {
+    try {
+      console.log('🆕 Creating new chat with title:', title)
       
-      setIsNearBottom(nearBottom)
-      setShowScrollToBottom(!nearBottom && scrollHeight > clientHeight)
+      const { data, errors } = await createChat({
+        variables: { title },
+        errorPolicy: 'all'
+      })
+
+      if (errors && errors.length > 0) {
+        console.error('❌ GraphQL errors:', errors)
+        const errorMessage = errors[0].message
+        
+        if (errorMessage.includes('permission')) {
+          toast.error('Permission denied. Please refresh and try again.')
+        } else if (errorMessage.includes('user_id')) {
+          toast.error('Authentication error. Please login again.')
+        } else {
+          toast.error('Failed to create chat. Please try again.')
+        }
+        throw new Error(errorMessage)
+      }
+
+      if (!data?.insert_chats_one) {
+        throw new Error('No data returned from chat creation')
+      }
+
+      console.log('✅ Chat created successfully:', data.insert_chats_one)
+      toast.success('🎉 New chat created!')
+      return data.insert_chats_one
+      
+    } catch (error) {
+      console.error('❌ Failed to create chat:', error)
+      
+      // Don't show toast if we already showed one above
+      if (!error.message.includes('permission') && !error.message.includes('user_id')) {
+        toast.error('Failed to create chat. Please try again.')
+      }
+      throw error
     }
-  }
+  }, [createChat])
 
-  // Auto-scroll when new messages arrive (only if user is near bottom)
-  useEffect(() => {
-    if (isNearBottom) {
-      scrollToBottom()
+  const sendMessage = useCallback(async (chatId, message) => {
+    // Validation
+    if (!message || !message.trim()) {
+      toast.error('Please enter a message')
+      return
     }
-  }, [data, isTyping, isNearBottom])
 
-  if (!chatId) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50/30 via-white/50 to-purple-50/30 dark:from-gray-900/30 dark:via-gray-800/50 dark:to-purple-900/30">
-        <div className="text-center max-w-md mx-auto px-6">
-          <div className="relative mb-8">
-            <div className="w-32 h-32 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto shadow-2xl rotate-3 hover:rotate-0 transition-transform duration-500">
-              <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </div>
-            <div className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-              ✨
-            </div>
-          </div>
+    if (!chatId) {
+      toast.error('Please select a chat first')
+      return
+    }
+
+    if (!user?.id) {
+      toast.error('Please login to send messages')
+      return
+    }
+
+    const trimmedMessage = message.trim()
+    
+    // Prevent duplicate messages
+    if (isTyping) {
+      console.log('⚠️ Already processing a message, skipping...')
+      return
+    }
+
+    setIsTyping(true)
+    
+    try {
+      console.log('📨 Sending message:', { 
+        chatId, 
+        message: trimmedMessage, 
+        userId: user.id,
+        timestamp: new Date().toISOString()
+      })
+      
+      // Step 1: Insert user message to database
+      const userMessageResult = await insertMessage({
+        variables: {
+          chat_id: chatId,
+          content: trimmedMessage,
+          role: 'user'
+        }
+      })
+
+      if (userMessageResult.errors && userMessageResult.errors.length > 0) {
+        const errorMessage = userMessageResult.errors[0].message
+        console.error('❌ Failed to save user message:', errorMessage)
+        
+        if (errorMessage.includes('permission')) {
+          toast.error('Permission denied. Please refresh and try again.')
+        } else if (errorMessage.includes('Foreign key violation')) {
+          toast.error('Chat not found. Please refresh the page.')
+        } else {
+          toast.error('Failed to save your message. Please try again.')
+        }
+        throw new Error('Failed to save user message: ' + errorMessage)
+      }
+
+      console.log('✅ User message saved successfully')
+      setLastMessageId(userMessageResult.data?.insert_messages_one?.id)
+
+      // Step 2: Call AI service via Hasura action
+      try {
+        console.log('🤖 Calling Gemini AI service...')
+        
+        const aiStartTime = Date.now()
+        
+        const actionResult = await sendMessageAction({
+          variables: {
+            chat_id: chatId,
+            message: trimmedMessage
+          }
+        })
+
+        const aiResponseTime = Date.now() - aiStartTime
+        console.log(`🔍 Gemini AI Response time: ${aiResponseTime}ms`)
+
+        // Enhanced response validation
+        if (actionResult.errors && actionResult.errors.length > 0) {
+          const actionError = actionResult.errors[0]
+          console.error('❌ AI Action GraphQL errors:', actionError)
+          throw new Error(`Gemini AI Action failed: ${actionError.message}`)
+        }
+
+        if (!actionResult.data) {
+          console.error('❌ No data returned from AI action')
+          throw new Error('No response from Gemini AI service')
+        }
+
+        const aiResponse = actionResult.data.sendMessage
+        if (!aiResponse) {
+          console.error('❌ No sendMessage data in response')
+          throw new Error('Invalid Gemini AI service response format')
+        }
+
+        // Check for successful AI response
+        if (aiResponse.success && aiResponse.message && aiResponse.message.trim()) {
+          console.log('✅AI responded successfully:', {
+            messageLength: aiResponse.message.length,
+            responseTime: aiResponseTime,
+            preview: aiResponse.message.substring(0, 100) + '...'
+          })
           
-          <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-800 via-blue-600 to-purple-600 dark:from-gray-200 dark:via-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-4">
-            Welcome to AI Assistant
-          </h3>
-          
-          <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed mb-8">
-            Start a conversation by selecting a chat or creating a new one. 
-            Let's explore ideas together! 🚀
-          </p>
+          // Show success notification
+          toast.success('🤖  AI responded!', {
+            duration: 2000,
+            icon: '🎉'
+          })
+        } else {
+          console.error('❌ AI response validation failed:', {
+            success: aiResponse.success,
+            hasMessage: !!aiResponse.message,
+            messageLength: aiResponse.message?.length || 0,
+            fullResponse: aiResponse
+          })
+          throw new Error(' AI service returned invalid response')
+        }
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div className="glass-card p-4 rounded-2xl border border-blue-200/50 dark:border-blue-800/50">
-              <div className="text-blue-500 dark:text-blue-400 mb-2">💡</div>
-              <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-1">Smart Conversations</h4>
-              <p className="text-gray-600 dark:text-gray-400 text-xs">Powered by advanced AI</p>
-            </div>
+      } catch (actionError) {
+        console.error('❌AI Action failed:', actionError)
+        
+        // Enhanced error handling with specific error types
+        const errorMessage = actionError.message.toLowerCase()
+        
+        if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+          toast.error('🌐 Network error. Please check your connection.', { duration: 4000 })
+        } else if (errorMessage.includes('timeout')) {
+          toast.error('⏱️ Request timeout. Please try again.', { duration: 4000 })
+        } else if (errorMessage.includes('rate limit') || errorMessage.includes('quota')) {
+          toast.error('🚦 Gemini service is busy. Please try again in a moment.', { duration: 4000 })
+        } else if (errorMessage.includes('authentication') || errorMessage.includes('unauthorized')) {
+          toast.error('🔐 Authentication error. Please refresh and login again.', { duration: 4000 })
+        } else if (errorMessage.includes('webhook') || errorMessage.includes('action')) {
+          toast.error('🔧 Gemini AI service temporarily unavailable. Please try again.', { duration: 4000 })
+        } else {
+          toast.error('🤖 Gemini AI service error. Please try rephrasing your message.', { duration: 4000 })
+        }
+        
+        // Provide helpful fallback response after a delay
+        setTimeout(async () => {
+          try {
+            const fallbackMessages = [
+              "I apologize, but I'm having trouble responding right now. This might be due to high demand or a temporary service issue. Please try asking your question again in a moment. Powered by Google Gemini 🤖",
+              "Sorry for the inconvenience! Gemini AI is experiencing some technical difficulties. Please rephrase your question and try again. 🔧",
+              "I'm currently unable to process your request properly. Please try again in a few moments. Thank you for your patience! 🙏 Powered by Google Gemini"
+            ]
             
-            <div className="glass-card p-4 rounded-2xl border border-purple-200/50 dark:border-purple-800/50">
-              <div className="text-purple-500 dark:text-purple-400 mb-2">🎨</div>
-              <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-1">Beautiful Design</h4>
-              <p className="text-gray-600 dark:text-gray-400 text-xs">Elegant glass morphism UI</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-400">
-          <div className="relative">
-            <div className="w-10 h-10 border-4 border-blue-200 dark:border-blue-800 rounded-full animate-spin border-t-blue-500 dark:border-t-blue-400"></div>
-            <div className="absolute inset-0 w-10 h-10 border-4 border-transparent rounded-full animate-ping border-t-blue-300 dark:border-t-blue-600"></div>
-          </div>
-          <div>
-            <p className="font-medium">Loading messages...</p>
-            <p className="text-sm opacity-75">Please wait a moment</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const messages = data?.messages || []
-
-  return (
-    <div className="flex-1 flex flex-col relative">
-      {/* Enhanced Chat Header */}
-      <div className="glass-strong border-b border-gray-200/50 dark:border-gray-700/50 px-6 py-4 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white dark:border-gray-800 animate-pulse"></div>
-            </div>
+            const fallbackMessage = fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)]
             
-            <div>
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 truncate max-w-xs">
-                {chatTitle || 'Chat'}
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center space-x-2">
-                <span>{messages.length} messages</span>
-                {isTyping && (
-                  <>
-                    <span>•</span>
-                    <span className="text-blue-500 dark:text-blue-400 flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-pulse"></div>
-                      <span>AI is typing...</span>
-                    </span>
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
+            await insertMessage({
+              variables: {
+                chat_id: chatId,
+                content: fallbackMessage,
+                role: 'assistant'
+              }
+            })
+            
+            console.log('🤖 Fallback message added successfully')
+            toast.info('💬 Added fallback response', { duration: 2000 })
+            
+          } catch (fallbackError) {
+            console.error('❌ Fallback message failed:', fallbackError)
+          }
+        }, 2000) // 2 second delay for better UX
+      }
 
-          <div className="flex items-center space-x-2">
-            <div className="px-3 py-1 glass rounded-full text-xs font-medium text-gray-600 dark:text-gray-400">
-              Online
-            </div>
-          </div>
-        </div>
-      </div>
+    } catch (error) {
+      console.error('❌ Send message error:', error)
+      
+      // Don't show duplicate toasts if already shown above
+      const errorMessage = error.message.toLowerCase()
+      if (!errorMessage.includes('permission') && 
+          !errorMessage.includes('foreign key') && 
+          !errorMessage.includes('save') &&
+          !errorMessage.includes('network') &&
+          !errorMessage.includes('timeout') &&
+          !errorMessage.includes('rate limit') &&
+          !errorMessage.includes('authentication') &&
+          !errorMessage.includes('webhook')) {
+        toast.error('Failed to send message. Please try again.')
+      }
+    } finally {
+      setIsTyping(false)
+    }
+  }, [insertMessage, sendMessageAction, user?.id, isTyping])
 
-      {/* Enhanced Messages Container with Proper Scroll */}
-      <div 
-        ref={messagesContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto custom-scrollbar px-6 py-6 bg-gradient-to-b from-transparent via-blue-50/20 to-purple-50/20 dark:via-gray-900/20 dark:to-purple-900/20 relative"
-        style={{ 
-          scrollBehavior: 'smooth',
-          overflowAnchor: 'none' 
-        }}
-      >
-        {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center max-w-sm">
-              <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Start the conversation
-              </h3>
-              <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                Send a message below to begin chatting with your AI assistant. 
-                Ask anything you'd like to know! 💬
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {messages.map((message, index) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                isUser={message.role === MESSAGE_ROLES.USER}
-                isLast={index === messages.length - 1}
-              />
-            ))}
-            {isTyping && <TypingIndicator />}
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+  const updateTitle = useCallback(async (chatId, newTitle) => {
+    if (!newTitle || !newTitle.trim()) {
+      toast.error('Chat title cannot be empty')
+      return
+    }
 
-      {/* Scroll to Bottom Button */}
-      {showScrollToBottom && (
-        <button
-          onClick={scrollToBottom}
-          className="absolute bottom-24 right-6 w-12 h-12 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group z-10"
-          title="Scroll to bottom"
-        >
-          <ChevronDownIcon className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
-          <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-        </button>
-      )}
-    </div>
-  )
+    if (newTitle.trim().length > 100) {
+      toast.error('Chat title is too long (max 100 characters)')
+      return
+    }
+
+    try {
+      console.log('✏️ Updating chat title:', { chatId, newTitle: newTitle.trim() })
+      
+      const { data, errors } = await updateChatTitle({
+        variables: {
+          id: chatId,
+          title: newTitle.trim()
+        }
+      })
+
+      if (errors && errors.length > 0) {
+        const errorMessage = errors[0].message
+        console.error('❌ Failed to update title:', errorMessage)
+        
+        if (errorMessage.includes('permission')) {
+          toast.error('Permission denied. You can only edit your own chats.')
+        } else if (errorMessage.includes('not found')) {
+          toast.error('Chat not found. Please refresh the page.')
+        } else {
+          toast.error('Failed to update chat title.')
+        }
+        throw new Error(errorMessage)
+      }
+
+      if (data?.update_chats_by_pk) {
+        console.log('✅ Chat title updated successfully')
+        toast.success('✏️ Chat title updated!')
+      } else {
+        throw new Error('No data returned from title update')
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to update title:', error)
+      
+      // Don't show duplicate toast if already shown above
+      if (!error.message.includes('permission') && 
+          !error.message.includes('not found')) {
+        toast.error('Failed to update chat title')
+      }
+      throw error
+    }
+  }, [updateChatTitle])
+
+  // Utility function to retry failed messages
+  const retryLastMessage = useCallback(async (chatId) => {
+    if (!lastMessageId || isTyping) return
+
+    setIsTyping(true)
+    try {
+      // Get the last user message and retry AI response
+      const actionResult = await sendMessageAction({
+        variables: {
+          chat_id: chatId,
+          message: "Please try responding to my previous message."
+        }
+      })
+
+      if (actionResult.data?.sendMessage?.success) {
+        toast.success('🔄 Retry successful!')
+      } else {
+        throw new Error('Retry failed')
+      }
+    } catch (error) {
+      console.error('❌ Retry failed:', error)
+      toast.error('Retry failed. Please try sending your message again.')
+    } finally {
+      setIsTyping(false)
+    }
+  }, [lastMessageId, isTyping, sendMessageAction])
+
+  return {
+    createNewChat,
+    sendMessage,
+    updateTitle,
+    retryLastMessage,
+    isTyping,
+    lastMessageId
+  }
 }
-
-export default ChatWindow
