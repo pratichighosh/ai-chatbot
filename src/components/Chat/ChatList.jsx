@@ -1,4 +1,3 @@
-// Fixed ChatList.jsx - Remove days_old reference
 import React, { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client'
 import { PlusIcon, ChatBubbleLeftIcon, TrashIcon, PencilIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline'
@@ -99,7 +98,6 @@ const ChatList = ({ onSelectChat, selectedChatId }) => {
     setActiveMenu(null)
   }
 
-  // FIXED: formatTime function without days_old reference
   const formatTime = (timestamp) => {
     try {
       const date = new Date(timestamp)
