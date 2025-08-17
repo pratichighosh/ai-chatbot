@@ -1,5 +1,7 @@
 import { gql } from '@apollo/client';
 
+// ===== CORE MUTATIONS (Required for Gemini AI) =====
+
 // Chat Management Mutations
 export const CREATE_CHAT = gql`
   mutation CreateChat($title: String!) {
@@ -114,7 +116,8 @@ export const DELETE_MESSAGES_BY_CHAT = gql`
   }
 `;
 
-// AI Service Actions
+// ===== GEMINI AI INTEGRATION (Essential) =====
+
 export const SEND_MESSAGE_ACTION = gql`
   mutation SendMessage($chat_id: uuid!, $message: String!) {
     sendMessage(chat_id: $chat_id, message: $message) {
@@ -124,7 +127,8 @@ export const SEND_MESSAGE_ACTION = gql`
   }
 `;
 
-// Batch Operations
+// ===== BATCH OPERATIONS =====
+
 export const INSERT_MULTIPLE_MESSAGES = gql`
   mutation InsertMultipleMessages($messages: [messages_insert_input!]!) {
     insert_messages(objects: $messages) {
@@ -155,7 +159,12 @@ export const BULK_DELETE_CHATS = gql`
   }
 `;
 
-// Chat Search and Filter
+// ===== ADVANCED FEATURES (OPTIONAL - Only if your schema supports them) =====
+
+// Uncomment these only if you have these fields in your database schema:
+
+/*
+// Chat Archive Feature (requires 'archived' field in chats table)
 export const ARCHIVE_CHAT = gql`
   mutation ArchiveChat($id: uuid!, $archived: Boolean = true) {
     update_chats_by_pk(
@@ -170,6 +179,7 @@ export const ARCHIVE_CHAT = gql`
   }
 `;
 
+// Chat Favorites Feature (requires 'is_favorite' field in chats table)
 export const SET_CHAT_FAVORITE = gql`
   mutation SetChatFavorite($id: uuid!, $is_favorite: Boolean = true) {
     update_chats_by_pk(
@@ -184,7 +194,7 @@ export const SET_CHAT_FAVORITE = gql`
   }
 `;
 
-// Message Reactions
+// Message Reactions Feature (requires 'message_reactions' table)
 export const ADD_MESSAGE_REACTION = gql`
   mutation AddMessageReaction($message_id: uuid!, $reaction: String!) {
     insert_message_reactions_one(object: {
@@ -212,7 +222,7 @@ export const REMOVE_MESSAGE_REACTION = gql`
   }
 `;
 
-// User Preferences
+// User Preferences Feature (requires 'preferences' field in users table)
 export const UPDATE_USER_PREFERENCES = gql`
   mutation UpdateUserPreferences($user_id: uuid!, $preferences: jsonb!) {
     update_users_by_pk(
@@ -226,7 +236,7 @@ export const UPDATE_USER_PREFERENCES = gql`
   }
 `;
 
-// Chat Statistics
+// Chat Statistics Feature (requires additional fields in chats table)
 export const UPDATE_CHAT_STATS = gql`
   mutation UpdateChatStats($chat_id: uuid!) {
     update_chats_by_pk(
@@ -242,43 +252,7 @@ export const UPDATE_CHAT_STATS = gql`
   }
 `;
 
-// Error Recovery
-export const RETRY_FAILED_MESSAGE = gql`
-  mutation RetryFailedMessage($original_message_id: uuid!, $chat_id: uuid!, $message: String!) {
-    delete_messages_by_pk(id: $original_message_id) {
-      id
-    }
-    sendMessage(chat_id: $chat_id, message: $message) {
-      message
-      success
-    }
-  }
-`;
-
-// Export Management
-export const EXPORT_CHAT_DATA = gql`
-  mutation ExportChatData($chat_id: uuid!) {
-    export_chat(chat_id: $chat_id) {
-      success
-      download_url
-      expires_at
-    }
-  }
-`;
-
-// Maintenance Operations (Admin only)
-export const CLEANUP_OLD_MESSAGES = gql`
-  mutation CleanupOldMessages($daysOld: Int = 90) {
-    delete_messages(where: {
-      created_at: { _lt: "now() - interval '$1 days'" },
-      role: { _eq: "system" }
-    }) {
-      affected_rows
-    }
-  }
-`;
-
-// Chat Templates
+// Chat Templates Feature (requires 'templates' table and 'template_id' field)
 export const CREATE_CHAT_FROM_TEMPLATE = gql`
   mutation CreateChatFromTemplate($template_id: uuid!, $title: String!) {
     insert_chats_one(object: {
@@ -298,7 +272,7 @@ export const CREATE_CHAT_FROM_TEMPLATE = gql`
   }
 `;
 
-// Conversation Sharing
+// Conversation Sharing Feature (requires 'shared_chats' table)
 export const SHARE_CONVERSATION = gql`
   mutation ShareConversation($chat_id: uuid!, $share_settings: jsonb!) {
     insert_shared_chats_one(object: {
@@ -321,6 +295,47 @@ export const SHARE_CONVERSATION = gql`
 export const REVOKE_CHAT_SHARE = gql`
   mutation RevokeChatShare($share_token: String!) {
     delete_shared_chats(where: { share_token: { _eq: $share_token } }) {
+      affected_rows
+    }
+  }
+`;
+*/
+
+// ===== ERROR RECOVERY =====
+
+export const RETRY_FAILED_MESSAGE = gql`
+  mutation RetryFailedMessage($original_message_id: uuid!, $chat_id: uuid!, $message: String!) {
+    delete_messages_by_pk(id: $original_message_id) {
+      id
+    }
+    sendMessage(chat_id: $chat_id, message: $message) {
+      message
+      success
+    }
+  }
+`;
+
+// ===== EXPORT FEATURES (Only if you have export actions set up) =====
+
+/*
+export const EXPORT_CHAT_DATA = gql`
+  mutation ExportChatData($chat_id: uuid!) {
+    export_chat(chat_id: $chat_id) {
+      success
+      download_url
+      expires_at
+    }
+  }
+`;
+*/
+
+// ===== MAINTENANCE (Admin only) =====
+
+export const CLEANUP_OLD_MESSAGES = gql`
+  mutation CleanupOldMessages($daysOld: Int = 90) {
+    delete_messages(where: {
+      created_at: { _lt: "now() - interval '90 days'" }
+    }) {
       affected_rows
     }
   }
