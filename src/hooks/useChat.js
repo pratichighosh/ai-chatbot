@@ -79,9 +79,9 @@ export const useChat = () => {
 
       console.log('✅ User message saved')
 
-      // Step 2: Call Gemini AI via Hasura action
+      // Step 2: Call AI chatbot action
       try {
-        console.log('🤖 Calling Gemini AI through Hasura action...')
+        console.log('🤖 Calling AI through Hasura action...')
         
         const actionResult = await sendMessageAction({
           variables: {
@@ -93,82 +93,91 @@ export const useChat = () => {
 
         console.log('🔍 Action Result:', actionResult)
 
-        if (actionResult.data?.sendMessage?.success && actionResult.data?.sendMessage?.message) {
-          console.log('✅ Gemini AI responded:', actionResult.data.sendMessage.message)
-          toast.success('🧠 AI responded!', {
-            icon: '🤖',
-            duration: 2000
-          })
+        // Check if action was successful
+        if (actionResult.data?.sendMessage) {
+          const response = actionResult.data.sendMessage
+          console.log('✅ AI Action Response:', response)
+          
+          if (response.success && response.message) {
+            console.log('✅ AI responded:', response.message)
+            
+            // Step 3: Insert AI response message directly
+            const aiMessageResult = await insertMessage({
+              variables: {
+                chat_id: chatId,
+                content: response.message,
+                role: 'assistant'
+              },
+              errorPolicy: 'all'
+            })
+
+            if (aiMessageResult.errors && aiMessageResult.errors.length > 0) {
+              console.error('❌ Failed to save AI message:', aiMessageResult.errors)
+              toast.error('AI responded but failed to save the message')
+            } else {
+              console.log('✅ AI message saved to database')
+              toast.success('🤖 AI responded!')
+            }
+          } else {
+            console.log('⚠️ AI action unsuccessful or no message:', response)
+            throw new Error(response.message || 'AI did not provide a response')
+          }
         } else if (actionResult.errors) {
           console.log('⚠️ Action errors:', actionResult.errors)
           throw new Error('AI service error: ' + actionResult.errors[0].message)
         } else {
-          console.log('⚠️ Action returned no response or failed')
-          throw new Error('No AI response received')
+          console.log('⚠️ No response from action')
+          throw new Error('No response from AI service')
         }
 
       } catch (actionError) {
         console.log('⚠️ AI action failed:', actionError.message)
         
-        // Enhanced error handling for Gemini-specific issues
-        if (actionError.message.includes('safety') || actionError.message.includes('filter')) {
-          toast.error('🛡️ Content filtered for safety. Please rephrase your message.', {
-            duration: 4000
-          })
-        } else if (actionError.message.includes('quota') || actionError.message.includes('limit')) {
-          toast.error('📊 AI service busy. Please try again in a moment.', {
-            duration: 4000
-          })
-        } else if (actionError.message.includes('network') || actionError.message.includes('timeout')) {
-          toast.error('🌐 Network error. Please check your connection.', {
-            duration: 4000
-          })
+        // Provide user-friendly error messages
+        let errorMessage = "I'm having trouble responding right now. "
+        
+        if (actionError.message.includes('network') || actionError.message.includes('timeout')) {
+          errorMessage += "Please check your internet connection and try again."
+          toast.error('Network error. Please check your connection.')
         } else if (actionError.message.includes('rate limit')) {
-          toast.error('⏱️ Too many requests. Please wait a moment.', {
-            duration: 4000
-          })
+          errorMessage += "I'm receiving too many requests. Please wait a moment before trying again."
+          toast.error('Too many requests. Please wait a moment.')
+        } else if (actionError.message.includes('authentication')) {
+          errorMessage += "There's an authentication issue. Please refresh the page and try again."
+          toast.error('Authentication error. Please refresh and try again.')
         } else {
-          toast.error('🤖 AI temporarily unavailable. Please try again.', {
-            duration: 4000
-          })
+          errorMessage += "This might be due to high demand. Please try again in a moment."
+          toast.error('AI service temporarily unavailable.')
         }
         
-        // Provide a helpful fallback response
+        // Insert fallback error message
         setTimeout(async () => {
           try {
-            const fallbackMessages = [
-              "I apologize, but I'm having trouble responding right now. This might be due to high demand or a temporary service issue. Please try asking your question again in a moment. 🤖",
-              "I'm experiencing some technical difficulties at the moment. Could you please rephrase your question or try again? Thank you for your patience! 🛠️",
-              "It seems like I'm having trouble processing your request. This could be due to content filtering or high server load. Please try again with a different phrasing. 🔄"
-            ]
-            
-            const randomFallback = fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)]
-            
             await insertMessage({
               variables: {
                 chat_id: chatId,
-                content: randomFallback,
+                content: errorMessage + " 🤖",
                 role: 'assistant'
               }
             })
-            console.log('🤖 Fallback message added')
+            console.log('🤖 Error fallback message added')
           } catch (err) {
             console.log('❌ Fallback message failed:', err)
           }
-        }, 1500)
+        }, 1000)
       }
 
     } catch (error) {
       console.error('❌ Error sending message:', error)
       
       if (error.message.includes('permission')) {
-        toast.error('🔒 Permission denied. Please refresh and try again.')
+        toast.error('Permission denied. Please refresh and try again.')
       } else if (error.message.includes('user_id')) {
-        toast.error('👤 Authentication error. Please refresh the page.')
+        toast.error('Authentication error. Please refresh the page.')
       } else if (error.message.includes('network')) {
-        toast.error('🌐 Network error. Please check your connection.')
+        toast.error('Network error. Please check your connection.')
       } else {
-        toast.error('📤 Failed to send message. Please try again.')
+        toast.error('Failed to send message. Please try again.')
       }
     } finally {
       setIsTyping(false)
@@ -183,7 +192,7 @@ export const useChat = () => {
           title: newTitle
         }
       })
-      toast.success('✏️ Chat title updated')
+      toast.success('Chat title updated')
     } catch (error) {
       console.error('❌ Failed to update title:', error)
       toast.error('Failed to update title')
