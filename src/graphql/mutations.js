@@ -28,12 +28,6 @@ export const INSERT_MESSAGE = gql`
   }
 `
 
-export const GET_AI_RESPONSE = gql`
-  mutation GetAIResponse($message: String!, $chat_id: uuid!) {
-    getAIResponse(message: $message, chat_id: $chat_id)
-  }
-`
-
 export const UPDATE_CHAT_TITLE = gql`
   mutation UpdateChatTitle($id: uuid!, $title: String!) {
     update_chats_by_pk(pk_columns: { id: $id }, _set: { title: $title }) {

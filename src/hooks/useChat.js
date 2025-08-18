@@ -4,7 +4,6 @@ import { useUserData } from '@nhost/react'
 import { 
   CREATE_CHAT, 
   INSERT_MESSAGE, 
-  GET_AI_RESPONSE,
   UPDATE_CHAT_TITLE 
 } from '../graphql/mutations'
 import { GET_CHATS } from '../graphql/queries'
@@ -20,7 +19,6 @@ export const useChat = () => {
   })
   
   const [insertMessage] = useMutation(INSERT_MESSAGE)
-  const [getAIResponse] = useMutation(GET_AI_RESPONSE)
   const [updateChatTitle] = useMutation(UPDATE_CHAT_TITLE)
 
   const createNewChat = useCallback(async (title = 'New Chat') => {
@@ -77,30 +75,47 @@ export const useChat = () => {
 
       console.log('✅ User message saved')
 
-      // Step 2: Get AI response
-      console.log('🤖 Calling Gemini AI...')
+      // Step 2: Call n8n webhook directly (BYPASS HASURA ACTION)
+      console.log('🤖 Calling webhook directly...')
       
-      const aiResult = await getAIResponse({
-        variables: {
-          message: message.trim(),
-          chat_id: chatId
+      const webhookResponse = await fetch('https://pratichi.app.n8n.cloud/webhook/98daad64-3b9f-4db3-8cf7-8aec2306445f', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        errorPolicy: 'all'
+        body: JSON.stringify({
+          input: {
+            message: message.trim(),
+            chat_id: chatId,
+            user_id: user.id
+          }
+        })
       })
 
-      console.log('🔍 AI Result:', aiResult)
+      console.log('🔍 Webhook response status:', webhookResponse.status)
 
-      if (aiResult.errors) {
-        console.error('❌ AI errors:', aiResult.errors)
-        throw new Error('AI service error: ' + aiResult.errors[0].message)
+      if (!webhookResponse.ok) {
+        throw new Error(`Webhook failed with status: ${webhookResponse.status}`)
       }
 
-      const aiMessage = aiResult.data?.getAIResponse
+      const result = await webhookResponse.json()
+      console.log('🔍 Webhook result:', result)
+
+      let aiMessage = null
+
+      // Handle different response formats
+      if (typeof result === 'string') {
+        aiMessage = result
+      } else if (result.message) {
+        aiMessage = result.message
+      } else if (result.response && result.response.message) {
+        aiMessage = result.response.message
+      }
 
       if (aiMessage && typeof aiMessage === 'string' && aiMessage.trim().length > 0) {
         console.log('✅ AI responded:', aiMessage.substring(0, 100) + '...')
         
-        // Step 3: Save AI response
+        // Step 3: Save AI response to database
         const aiMessageResult = await insertMessage({
           variables: {
             chat_id: chatId,
@@ -118,21 +133,24 @@ export const useChat = () => {
           toast.success('🤖 Gemini AI responded!')
         }
       } else {
-        console.log('⚠️ No valid AI response received')
+        console.log('⚠️ No valid AI response received:', result)
         throw new Error('AI returned empty or invalid response')
       }
 
     } catch (error) {
       console.error('❌ Send message error:', error)
       
-      if (error.message.includes('permission')) {
+      // User-friendly error messages
+      if (error.message.includes('Failed to save user message')) {
+        toast.error('Failed to save your message. Please try again.')
+      } else if (error.message.includes('Webhook failed')) {
+        toast.error('AI service is temporarily unavailable. Please try again.')
+      } else if (error.message.includes('permission')) {
         toast.error('Permission denied. Please refresh and try again.')
-      } else if (error.message.includes('user_id')) {
-        toast.error('Authentication error. Please refresh the page.')
-      } else if (error.message.includes('network')) {
-        toast.error('Network error. Please check your connection.')
-      } else if (error.message.includes('AI service error')) {
-        toast.error('AI service temporarily unavailable. Please try again.')
+      } else if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
+        toast.error('Network error. Please check your connection and try again.')
+      } else if (error.message.includes('empty or invalid response')) {
+        toast.error('AI service returned an invalid response. Please try again.')
       } else {
         toast.error('Failed to send message. Please try again.')
       }
@@ -156,7 +174,7 @@ export const useChat = () => {
     } finally {
       setIsTyping(false)
     }
-  }, [insertMessage, getAIResponse, user?.id])
+  }, [insertMessage, user?.id])
 
   const updateTitle = useCallback(async (chatId, newTitle) => {
     try {
