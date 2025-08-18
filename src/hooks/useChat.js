@@ -4,7 +4,7 @@ import { useUserData } from '@nhost/react'
 import { 
   CREATE_CHAT, 
   INSERT_MESSAGE, 
-  SEND_MESSAGE_ACTION,
+  GET_AI_RESPONSE,
   UPDATE_CHAT_TITLE 
 } from '../graphql/mutations'
 import { GET_CHATS } from '../graphql/queries'
@@ -20,7 +20,7 @@ export const useChat = () => {
   })
   
   const [insertMessage] = useMutation(INSERT_MESSAGE)
-  const [sendMessageAction] = useMutation(SEND_MESSAGE_ACTION)
+  const [getAIResponse] = useMutation(GET_AI_RESPONSE)
   const [updateChatTitle] = useMutation(UPDATE_CHAT_TITLE)
 
   const createNewChat = useCallback(async (title = 'New Chat') => {
@@ -77,101 +77,67 @@ export const useChat = () => {
 
       console.log('✅ User message saved')
 
-      // Step 2: Call Gemini AI through Hasura action
-      console.log('🤖 Calling Gemini AI action...')
+      // Step 2: Get AI response
+      console.log('🤖 Calling Gemini AI...')
       
-      const actionResult = await sendMessageAction({
+      const aiResult = await getAIResponse({
         variables: {
-          chat_id: chatId,
-          message: message.trim()
+          message: message.trim(),
+          chat_id: chatId
         },
         errorPolicy: 'all'
       })
 
-      console.log('🔍 Full Action Result:', JSON.stringify(actionResult, null, 2))
+      console.log('🔍 AI Result:', aiResult)
 
-      // Enhanced response handling
-      if (actionResult.errors) {
-        console.error('❌ Action errors:', actionResult.errors)
-        
-        // Check for authentication errors
-        const authError = actionResult.errors.find(error => 
-          error.message.includes('401') || 
-          error.message.includes('Unauthorized') || 
-          error.message.includes('permission')
-        )
-        
-        if (authError) {
-          throw new Error('Authentication failed. Please refresh the page and try again.')
-        } else {
-          throw new Error('AI service error: ' + actionResult.errors[0].message)
-        }
+      if (aiResult.errors) {
+        console.error('❌ AI errors:', aiResult.errors)
+        throw new Error('AI service error: ' + aiResult.errors[0].message)
       }
 
-      if (actionResult.data?.sendMessage) {
-        const response = actionResult.data.sendMessage
-        console.log('✅ Gemini Action Response:', response)
+      const aiMessage = aiResult.data?.getAIResponse
+
+      if (aiMessage && typeof aiMessage === 'string' && aiMessage.trim().length > 0) {
+        console.log('✅ AI responded:', aiMessage.substring(0, 100) + '...')
         
-        // Handle different response formats
-        let aiMessage = null
-        
-        if (typeof response === 'string') {
-          aiMessage = response
-        } else if (response.message) {
-          aiMessage = response.message
-        } else if (response.response && response.response.message) {
-          aiMessage = response.response.message
-        }
-        
-        if (aiMessage && aiMessage.trim().length > 0) {
-          console.log('✅ AI responded:', aiMessage.substring(0, 100) + '...')
-          
-          // The webhook should have saved the message, but let's verify by manually inserting if needed
-          // Wait a moment for the webhook to process
-          setTimeout(async () => {
-            try {
-              // Check if we need to manually save the AI response
-              await insertMessage({
-                variables: {
-                  chat_id: chatId,
-                  content: aiMessage,
-                  role: 'assistant'
-                },
-                errorPolicy: 'all'
-              })
-              console.log('✅ AI message saved (backup)')
-            } catch (err) {
-              console.log('ℹ️ Message may already exist:', err.message)
-            }
-          }, 1000)
-          
-          toast.success('🤖 Gemini AI responded!')
+        // Step 3: Save AI response
+        const aiMessageResult = await insertMessage({
+          variables: {
+            chat_id: chatId,
+            content: aiMessage.trim(),
+            role: 'assistant'
+          },
+          errorPolicy: 'all'
+        })
+
+        if (aiMessageResult.errors && aiMessageResult.errors.length > 0) {
+          console.error('❌ Failed to save AI message:', aiMessageResult.errors)
+          toast.error('AI responded but failed to save the message')
         } else {
-          console.log('⚠️ Empty AI response')
-          throw new Error('AI returned an empty response')
+          console.log('✅ AI message saved successfully')
+          toast.success('🤖 Gemini AI responded!')
         }
       } else {
-        console.log('⚠️ No action response data')
-        throw new Error('No response from AI service')
+        console.log('⚠️ No valid AI response received')
+        throw new Error('AI returned empty or invalid response')
       }
 
     } catch (error) {
       console.error('❌ Send message error:', error)
       
-      // User-friendly error messages
-      if (error.message.includes('Authentication failed') || error.message.includes('401')) {
-        toast.error('Authentication error. Please refresh the page and try again.')
-      } else if (error.message.includes('permission')) {
-        toast.error('Permission denied. Please check your account settings.')
-      } else if (error.message.includes('network') || error.message.includes('timeout')) {
+      if (error.message.includes('permission')) {
+        toast.error('Permission denied. Please refresh and try again.')
+      } else if (error.message.includes('user_id')) {
+        toast.error('Authentication error. Please refresh the page.')
+      } else if (error.message.includes('network')) {
         toast.error('Network error. Please check your connection.')
-      } else if (error.message.includes('empty response')) {
-        toast.error('AI service returned an empty response. Please try again.')
+      } else if (error.message.includes('AI service error')) {
+        toast.error('AI service temporarily unavailable. Please try again.')
       } else {
         toast.error('Failed to send message. Please try again.')
       }
       
-      // Add a helpful fallback message in case of errors
+      // Add fallback message in case of error
       setTimeout(async () => {
         try {
           await insertMessage({
@@ -190,7 +156,7 @@ export const useChat = () => {
     } finally {
       setIsTyping(false)
     }
-  }, [insertMessage, sendMessageAction, user?.id])
+  }, [insertMessage, getAIResponse, user?.id])
 
   const updateTitle = useCallback(async (chatId, newTitle) => {
     try {
