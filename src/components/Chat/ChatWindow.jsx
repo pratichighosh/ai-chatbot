@@ -44,8 +44,12 @@ const ChatWindow = ({ chatId, chatTitle }) => {
     return (
       <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
         <div className="text-center max-w-md mx-auto px-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl">
-            <ChatBubbleLeftIcon className="w-10 h-10 text-white" />
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl p-2">
+            <img 
+              src="/Screenshot__291_-removebg-preview.png" 
+              alt="AI Assistant Logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
           
           <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-3">
@@ -142,8 +146,12 @@ const ChatWindow = ({ chatId, chatTitle }) => {
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full min-h-[400px]">
             <div className="text-center max-w-sm">
-              <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <ChatBubbleLeftIcon className="w-8 h-8 text-gray-400" />
+              <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg p-2">
+                <img 
+                  src="/Screenshot__291_-removebg-preview.png" 
+                  alt="AI Assistant Logo" 
+                  className="w-full h-full object-contain"
+                />
               </div>
               <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Start the conversation
