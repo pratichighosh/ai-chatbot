@@ -91,9 +91,9 @@ const ChatWindow = ({ chatId, chatTitle }) => {
   const messages = data?.messages || []
 
   return (
-    <div className="flex-1 flex flex-col relative">
+    <div className="h-full flex flex-col relative">
       {/* Clean Header */}
-      <div className="glass-strong border-b border-gray-200/50 dark:border-gray-700/50 px-6 py-4">
+      <div className="flex-shrink-0 glass-strong border-b border-gray-200/50 dark:border-gray-700/50 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="relative">
@@ -133,17 +133,14 @@ const ChatWindow = ({ chatId, chatTitle }) => {
         </div>
       </div>
 
-      {/* Messages Container - Fixed Scroll */}
+      {/* Messages Container - FIXED SCROLL */}
       <div 
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto custom-scrollbar px-6 py-6 bg-gradient-to-b from-gray-50/30 to-white dark:from-gray-900/30 dark:to-gray-800/30"
-        style={{ 
-          scrollBehavior: 'smooth'
-        }}
+        className="flex-1 overflow-y-scroll custom-scrollbar px-6 py-6 bg-gradient-to-b from-gray-50/30 to-white dark:from-gray-900/30 dark:to-gray-800/30 min-h-0"
       >
         {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center h-full min-h-[400px]">
             <div className="text-center max-w-sm">
               <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                 <ChatBubbleLeftIcon className="w-8 h-8 text-gray-400" />
@@ -157,7 +154,7 @@ const ChatWindow = ({ chatId, chatTitle }) => {
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 pb-4">
             {messages.map((message, index) => (
               <MessageBubble
                 key={message.id}
@@ -167,9 +164,9 @@ const ChatWindow = ({ chatId, chatTitle }) => {
               />
             ))}
             {isTyping && <TypingIndicator />}
+            <div ref={messagesEndRef} />
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Scroll to Bottom Button */}
