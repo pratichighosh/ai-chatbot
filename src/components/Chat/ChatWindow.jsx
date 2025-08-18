@@ -3,6 +3,7 @@ import { useSubscription } from '@apollo/client'
 import { SUBSCRIBE_MESSAGES } from '../../graphql/subscriptions'
 import MessageBubble from './MessageBubble'
 import TypingIndicator from './TypingIndicator'
+import MessageInput from './MessageInput'
 import { useChat } from '../../hooks/useChat'
 import { MESSAGE_ROLES } from '../../utils/constants'
 import { ChevronDownIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline'
@@ -42,52 +43,57 @@ const ChatWindow = ({ chatId, chatTitle }) => {
 
   if (!chatId) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
-        <div className="text-center max-w-md mx-auto px-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl p-2">
-            <img 
-              src="/Screenshot__291_-removebg-preview.png" 
-              alt="AI Assistant Logo" 
-              className="w-full h-full object-contain"
-            />
-          </div>
-          
-          <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-3">
-            Welcome to AI Assistant
-          </h3>
-          
-          <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-8">
-            Start a conversation by selecting a chat or creating a new one. 
-            Ask questions, get explanations, or just chat!
-          </p>
-
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="glass p-3 rounded-xl border border-gray-200/50 dark:border-gray-700/50">
-              <div className="text-blue-500 dark:text-blue-400 mb-2">💡</div>
-              <h4 className="font-medium text-gray-800 dark:text-gray-200 text-xs">Smart Answers</h4>
+      <div className="flex-1 flex flex-col">
+        {/* Welcome Screen */}
+        <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+          <div className="text-center max-w-md mx-auto px-6">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl">
+              <ChatBubbleLeftIcon className="w-10 h-10 text-white" />
             </div>
             
-            <div className="glass p-3 rounded-xl border border-gray-200/50 dark:border-gray-700/50">
-              <div className="text-green-500 dark:text-green-400 mb-2">⚡</div>
-              <h4 className="font-medium text-gray-800 dark:text-gray-200 text-xs">Fast Responses</h4>
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-3">
+              Welcome to AI Assistant
+            </h3>
+            
+            <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-8">
+              Start a conversation by selecting a chat or creating a new one. 
+              Ask questions, get explanations, or just chat!
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="glass p-3 rounded-xl border border-gray-200/50 dark:border-gray-700/50">
+                <div className="text-blue-500 dark:text-blue-400 mb-2">💡</div>
+                <h4 className="font-medium text-gray-800 dark:text-gray-200 text-xs">Smart Answers</h4>
+              </div>
+              
+              <div className="glass p-3 rounded-xl border border-gray-200/50 dark:border-gray-700/50">
+                <div className="text-green-500 dark:text-green-400 mb-2">⚡</div>
+                <h4 className="font-medium text-gray-800 dark:text-gray-200 text-xs">Fast Responses</h4>
+              </div>
             </div>
           </div>
         </div>
+        
+        {/* Message Input - Always show even without chat selected */}
+        <MessageInput chatId={null} />
       </div>
     )
   }
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-400">
-          <div className="relative">
-            <div className="w-8 h-8 border-2 border-blue-200 dark:border-blue-800 rounded-full animate-spin border-t-blue-500 dark:border-t-blue-400"></div>
-          </div>
-          <div>
-            <p className="font-medium">Loading messages...</p>
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-400">
+            <div className="relative">
+              <div className="w-8 h-8 border-2 border-blue-200 dark:border-blue-800 rounded-full animate-spin border-t-blue-500 dark:border-t-blue-400"></div>
+            </div>
+            <div>
+              <p className="font-medium">Loading messages...</p>
+            </div>
           </div>
         </div>
+        <MessageInput chatId={chatId} />
       </div>
     )
   }
@@ -95,9 +101,9 @@ const ChatWindow = ({ chatId, chatTitle }) => {
   const messages = data?.messages || []
 
   return (
-    <div className="h-full flex flex-col relative">
+    <div className="flex-1 flex flex-col h-full">
       {/* Clean Header */}
-      <div className="flex-shrink-0 glass-strong border-b border-gray-200/50 dark:border-gray-700/50 px-6 py-4">
+      <div className="glass-strong border-b border-gray-200/50 dark:border-gray-700/50 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="relative">
@@ -137,21 +143,17 @@ const ChatWindow = ({ chatId, chatTitle }) => {
         </div>
       </div>
 
-      {/* Messages Container - FIXED SCROLL */}
+      {/* Messages Container - Fixed Height */}
       <div 
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-scroll custom-scrollbar px-6 py-6 bg-gradient-to-b from-gray-50/30 to-white dark:from-gray-900/30 dark:to-gray-800/30 min-h-0"
+        className="flex-1 overflow-y-auto custom-scrollbar px-6 py-6 bg-gradient-to-b from-gray-50/30 to-white dark:from-gray-900/30 dark:to-gray-800/30 min-h-0"
       >
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full min-h-[400px]">
             <div className="text-center max-w-sm">
-              <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg p-2">
-                <img 
-                  src="/Screenshot__291_-removebg-preview.png" 
-                  alt="AI Assistant Logo" 
-                  className="w-full h-full object-contain"
-                />
+              <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <ChatBubbleLeftIcon className="w-8 h-8 text-gray-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Start the conversation
@@ -162,7 +164,7 @@ const ChatWindow = ({ chatId, chatTitle }) => {
             </div>
           </div>
         ) : (
-          <div className="space-y-4 pb-4">
+          <div className="space-y-4">
             {messages.map((message, index) => (
               <MessageBubble
                 key={message.id}
@@ -172,9 +174,9 @@ const ChatWindow = ({ chatId, chatTitle }) => {
               />
             ))}
             {isTyping && <TypingIndicator />}
-            <div ref={messagesEndRef} />
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Scroll to Bottom Button */}
@@ -187,6 +189,11 @@ const ChatWindow = ({ chatId, chatTitle }) => {
           <ChevronDownIcon className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />
         </button>
       )}
+
+      {/* Message Input - Always at bottom */}
+      <div className="flex-shrink-0">
+        <MessageInput chatId={chatId} />
+      </div>
     </div>
   )
 }
