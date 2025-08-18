@@ -61,7 +61,7 @@ export const useChat = () => {
     setIsTyping(true)
     
     try {
-      console.log('📨 Sending message:', { chatId, message: message.trim(), userId: user.id })
+      console.log('📨 Sending message to Gemini AI:', { chatId, message: message.trim(), userId: user.id })
       
       // Step 1: Insert user message
       const userMessageResult = await insertMessage({
@@ -79,9 +79,9 @@ export const useChat = () => {
 
       console.log('✅ User message saved')
 
-      // Step 2: Call AI action with timeout and error handling
+      // Step 2: Call Gemini AI through Hasura action
       try {
-        console.log('🤖 Calling AI action...')
+        console.log('🤖 Calling Gemini AI through Hasura action...')
         
         const actionResult = await sendMessageAction({
           variables: {
@@ -91,25 +91,24 @@ export const useChat = () => {
           errorPolicy: 'all'
         })
 
-        console.log('🔍 Action Result:', actionResult)
+        console.log('🔍 Gemini Action Result:', actionResult)
 
-        // Handle the response
+        // Enhanced response handling for Gemini AI
         if (actionResult.data?.sendMessage) {
           const response = actionResult.data.sendMessage
-          console.log('✅ AI Response:', response)
+          console.log('✅ Gemini AI Action Response:', response)
           
-          if (response.message && typeof response.message === 'string') {
-            console.log('✅ AI responded with:', response.message.substring(0, 100) + '...')
+          if (response.message && typeof response.message === 'string' && response.message.trim().length > 0) {
+            console.log('✅ Gemini AI responded with:', response.message.substring(0, 100) + '...')
             
-            // The webhook should have already saved the message to the database
-            // But let's verify by checking if we need to save manually
+            // The message should already be saved by the webhook, but let's verify
             if (response.success) {
-              console.log('✅ Response marked as successful')
-              toast.success('🤖 AI responded!')
+              console.log('✅ Gemini AI message saved successfully to database')
+              toast.success('🤖 Gemini AI responded!')
             } else {
-              console.log('⚠️ Response not marked as successful, saving manually...')
+              console.log('⚠️ Gemini AI responded but database save may have failed')
               
-              // Manual save as fallback
+              // Manually save the AI response as a backup
               try {
                 await insertMessage({
                   variables: {
@@ -119,60 +118,65 @@ export const useChat = () => {
                   },
                   errorPolicy: 'all'
                 })
-                console.log('✅ Manually saved AI message')
-                toast.success('🤖 AI responded!')
-              } catch (manualSaveError) {
-                console.error('❌ Manual save failed:', manualSaveError)
-                toast.error('AI responded but message might not be saved')
+                console.log('✅ Manually saved Gemini AI response')
+                toast.success('🤖 Gemini AI responded!')
+              } catch (backupError) {
+                console.error('❌ Failed to backup save AI message:', backupError)
+                toast.error('AI responded but couldn\'t save the message')
               }
             }
           } else {
-            console.log('⚠️ Invalid message format:', response)
-            throw new Error('Invalid AI response format')
+            console.log('⚠️ Empty or invalid response from Gemini AI')
+            throw new Error('Gemini AI returned an empty response')
           }
         } else if (actionResult.errors) {
-          console.log('⚠️ Action had errors:', actionResult.errors)
-          throw new Error('AI service error: ' + actionResult.errors[0].message)
+          console.log('⚠️ Gemini AI action errors:', actionResult.errors)
+          throw new Error('Gemini AI service error: ' + actionResult.errors[0].message)
         } else {
-          console.log('⚠️ No response from AI action')
-          throw new Error('No response from AI service')
+          console.log('⚠️ No response from Gemini AI action')
+          throw new Error('No response from Gemini AI service')
         }
 
       } catch (actionError) {
-        console.log('⚠️ AI action failed:', actionError.message)
+        console.log('⚠️ Gemini AI action failed:', actionError.message)
         
-        // Provide helpful fallback message based on error type
-        let fallbackMessage = "I'm having trouble responding right now. "
+        // Provide user-friendly error messages based on error type
+        let fallbackMessage = "I'm having trouble connecting to my AI capabilities right now. "
         
-        if (actionError.message.includes('rate limit') || actionError.message.includes('too many requests')) {
-          fallbackMessage += "I'm experiencing high demand. Please try again in a moment! 🕐"
-          toast.error('🕐 High demand - please try again shortly')
-        } else if (actionError.message.includes('network') || actionError.message.includes('timeout')) {
-          fallbackMessage += "Please check your connection and try again. 🌐"
-          toast.error('🌐 Network error - please try again')
-        } else if (actionError.message.includes('authentication')) {
-          fallbackMessage += "There's an authentication issue. Please refresh the page. 🔄"
-          toast.error('🔄 Please refresh the page')
+        if (actionError.message.includes('network') || actionError.message.includes('timeout')) {
+          fallbackMessage += "This seems to be a network issue. Please check your connection and try again."
+          toast.error('Network error. Please check your connection.')
+        } else if (actionError.message.includes('rate limit') || actionError.message.includes('429')) {
+          fallbackMessage += "I'm experiencing high demand right now. Please wait a moment and try again! 🚀"
+          toast.error('High demand detected. Please wait a moment.')
+        } else if (actionError.message.includes('authentication') || actionError.message.includes('403')) {
+          fallbackMessage += "There's an authentication issue. Please refresh the page and try again."
+          toast.error('Authentication error. Please refresh and try again.')
+        } else if (actionError.message.includes('empty response')) {
+          fallbackMessage += "I had trouble generating a response to your specific question. Could you try rephrasing it?"
+          toast.error('Please try rephrasing your question.')
         } else {
-          fallbackMessage += "Please try again in a moment. 🤖"
-          toast.error('🤖 AI temporarily unavailable')
+          fallbackMessage += "This might be due to high demand or a temporary service issue. Please try again in a moment!"
+          toast.error('AI service temporarily unavailable.')
         }
         
-        // Add a helpful fallback message
+        fallbackMessage += "\n\nI'm powered by Gemini AI and I'm here to help with programming, explanations, creative projects, and much more! 🤖"
+        
+        // Insert helpful fallback message
         setTimeout(async () => {
           try {
             await insertMessage({
               variables: {
                 chat_id: chatId,
-                content: fallbackMessage + "\n\nI'm still here to help! Feel free to:\n• Try rephrasing your question\n• Ask about something else\n• Try again in a few moments",
+                content: fallbackMessage,
                 role: 'assistant'
               }
             })
-            console.log('🤖 Fallback message added')
+            console.log('🤖 Gemini AI fallback message added')
           } catch (err) {
             console.log('❌ Fallback message failed:', err)
           }
-        }, 2000)
+        }, 1500)
       }
 
     } catch (error) {
