@@ -144,7 +144,7 @@ const ChatList = ({ onSelectChat, selectedChatId }) => {
               Conversations
             </h1>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Powered by Gemini AI ✨
+              
             </p>
           </div>
         </div>
@@ -203,7 +203,7 @@ const ChatList = ({ onSelectChat, selectedChatId }) => {
                 No conversations yet
               </h3>
               <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                Start your first conversation with Gemini AI! Click the button above to begin. 🚀
+                Start your first conversation! Click the button above to begin. 🚀
               </p>
             </div>
           </div>
@@ -362,8 +362,7 @@ const ChatList = ({ onSelectChat, selectedChatId }) => {
         <div className="text-xs text-gray-500 dark:text-gray-400 text-center space-y-1">
           <div>{data?.chats?.length || 0} total conversations</div>
           <div className="flex items-center justify-center space-x-1">
-            <span>⚡ Powered by</span>
-            <span className="font-semibold text-blue-600 dark:text-blue-400">Google Gemini</span>
+           
           </div>
         </div>
       </div>

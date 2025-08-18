@@ -91,8 +91,8 @@ const MessageInput = ({ chatId }) => {
                 !chatId 
                   ? "Select a chat to start messaging..." 
                   : isTyping 
-                    ? "Gemini AI is thinking..." 
-                    : "Ask anything... Gemini is ready to help! 🧠"
+                    ? "AI is thinking..." 
+                    : "Ask anything... Ai is ready to help! 🧠"
               }
               disabled={!chatId || isTyping}
               className="w-full resize-none rounded-2xl glass-strong placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent px-4 py-3 text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed custom-scrollbar border border-gray-200/30 dark:border-gray-700/30"
@@ -132,8 +132,8 @@ const MessageInput = ({ chatId }) => {
                 : !message.trim() 
                   ? "Enter a message" 
                   : isTyping 
-                    ? "Gemini is responding..." 
-                    : "Send to Gemini AI"
+                    ? "Ai is responding..." 
+                    : "Send to AI"
             }
           >
             {isTyping ? (
@@ -155,7 +155,7 @@ const MessageInput = ({ chatId }) => {
             <div className="glass-card rounded-xl p-3 border border-blue-200/50 dark:border-blue-800/50">
               <div className="flex items-center justify-center space-x-2 text-sm text-blue-600 dark:text-blue-400">
                 <SparklesIcon className="w-4 h-4" />
-                <span>Create a new chat or select an existing one to start conversations with Gemini AI</span>
+                <span>Create a new chat or select an existing one to start conversations with AI</span>
               </div>
             </div>
           </div>
@@ -169,10 +169,10 @@ const MessageInput = ({ chatId }) => {
                 <div className="typing-dot bg-purple-500"></div>
                 <div className="typing-dot bg-purple-500"></div>
               </div>
-              <span className="font-medium">Gemini AI is thinking...</span>
+              <span className="font-medium">AI is thinking...</span>
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">
-              Powered by Google's Gemini Pro
+              
             </div>
           </div>
         )}
@@ -181,7 +181,7 @@ const MessageInput = ({ chatId }) => {
         {chatId && !isTyping && message.length === 0 && (
           <div className="mt-4">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">
-              ✨ Try these with Gemini AI:
+              ✨ Try these with AI:
             </p>
             <div className="flex flex-wrap gap-2">
               {suggestionPrompts.slice(0, 4).map((suggestion, index) => (
@@ -216,7 +216,7 @@ const MessageInput = ({ chatId }) => {
         {/* Content Guidelines */}
         {chatId && !isTyping && message.length > 500 && (
           <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20 rounded-lg p-2 border border-amber-200/50 dark:border-amber-800/50">
-            💡 Tip: Shorter messages often get better responses from Gemini AI
+            💡 Tip: Shorter messages often get better responses from AI
           </div>
         )}
       </div>

@@ -6,7 +6,7 @@ const TypingIndicator = () => {
   
   // Rotating messages to show while Gemini is thinking
   const thinkingMessages = [
-    "Gemini is analyzing your question...",
+    "AI is analyzing your question...",
     "Processing with Google's AI...",
     "Generating thoughtful response...",
     "Applying safety filters...",
@@ -52,7 +52,7 @@ const TypingIndicator = () => {
               <div className="flex items-center space-x-2">
                 <SparklesIcon className="w-4 h-4 text-purple-500 animate-spin" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Gemini AI
+                   AI
                 </span>
               </div>
             </div>
@@ -73,7 +73,7 @@ const TypingIndicator = () => {
           <div className="flex items-center mt-1 px-2">
             <div className="flex items-center space-x-1 text-xs text-purple-500 dark:text-purple-400">
               <div className="w-1 h-1 bg-purple-400 rounded-full animate-pulse"></div>
-              <span>Powered by Google Gemini Pro</span>
+              <span> </span>
             </div>
           </div>
         </div>
