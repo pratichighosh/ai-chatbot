@@ -56,14 +56,10 @@ const RegisterForm = ({ onToggle }) => {
     try {
       console.log('📝 Attempting registration with email verification...')
       
-      // Use signUpEmailPassword with email verification enabled
+      // FIXED: Use only supported parameters - remove "options"
       const result = await signUpEmailPassword(email, password, {
-        // This forces email verification to be required
-        redirectTo: `${window.location.origin}/verify-email`,
-        options: {
-          // Additional options to ensure email verification
-          emailRedirectTo: `${window.location.origin}/verify-email`
-        }
+        redirectTo: 'https://superb-starlight-670243.netlify.app/verify-email'
+        // Removed the "options" parameter that was causing the 400 error
       })
       
       console.log('📋 Registration result:', result)
@@ -89,7 +85,7 @@ const RegisterForm = ({ onToggle }) => {
           }
         )
         
-        // Important: Clear form but DON'T log the user in
+        // Clear form but DON'T log the user in
         setEmail('')
         setPassword('')
         setConfirmPassword('')
@@ -128,6 +124,8 @@ const RegisterForm = ({ onToggle }) => {
             onToggle()
           }, 2000)
           return
+        } else if (message.includes('schema') || message.includes('unsupported')) {
+          errorMessage = 'Registration configuration error. Please try with a simpler setup.'
         } else {
           errorMessage = 'Invalid registration data. Please check your information.'
         }
@@ -145,7 +143,7 @@ const RegisterForm = ({ onToggle }) => {
     toast.error(errorMessage, { duration: 6000 })
   }
 
-  // Enhanced success state - User must verify email
+  // Success state - User must verify email
   if (registrationSuccess) {
     return (
       <div className="text-center space-y-8 animate-fade-in">
@@ -176,45 +174,43 @@ const RegisterForm = ({ onToggle }) => {
         </div>
         
         <div className="space-y-6">
-          {/* Step-by-step instructions */}
           <div className="glass-card rounded-2xl p-6 border-l-4 border-blue-500">
             <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-              <span className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm mr-3">📋</span>
-              Follow These Steps:
+              <span className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm mr-3">📧</span>
+              How It Works:
             </h4>
             <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-3 list-none">
               <li className="flex items-start space-x-3">
                 <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-blue-600 text-xs font-bold">1</span>
                 <div>
                   <p className="font-medium text-gray-800 dark:text-gray-200">Check your email inbox</p>
-                  <p className="text-xs">Look for an email from Nhost (check spam folder too)</p>
+                  <p className="text-xs">Look for verification email from Nhost</p>
                 </div>
               </li>
               <li className="flex items-start space-x-3">
                 <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-blue-600 text-xs font-bold">2</span>
                 <div>
-                  <p className="font-medium text-gray-800 dark:text-gray-200">Click "Verify Email" button</p>
-                  <p className="text-xs">This will open in a new tab/window</p>
+                  <p className="font-medium text-gray-800 dark:text-gray-200">Click the verification link</p>
+                  <p className="text-xs">This will verify your email automatically</p>
                 </div>
               </li>
               <li className="flex items-start space-x-3">
                 <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-blue-600 text-xs font-bold">3</span>
                 <div>
-                  <p className="font-medium text-gray-800 dark:text-gray-200">AI Chatbot will open automatically</p>
-                  <p className="text-xs">You'll be redirected to the chatbot after verification</p>
+                  <p className="font-medium text-gray-800 dark:text-gray-200">AI Chatbot opens automatically</p>
+                  <p className="text-xs">You'll be redirected to the chatbot</p>
                 </div>
               </li>
               <li className="flex items-start space-x-3">
                 <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-blue-600 text-xs font-bold">4</span>
                 <div>
                   <p className="font-medium text-gray-800 dark:text-gray-200">Sign in and start chatting!</p>
-                  <p className="text-xs">Use your email and password to sign in</p>
+                  <p className="text-xs">Use your email and password</p>
                 </div>
               </li>
             </ol>
           </div>
           
-          {/* Email verification details */}
           <div className="glass-card rounded-2xl p-6 border-l-4 border-green-500">
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
@@ -224,22 +220,18 @@ const RegisterForm = ({ onToggle }) => {
               </div>
               <div>
                 <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
-                  🔒 Email Verification Required
+                  🚀 Direct Access After Verification
                 </h4>
                 <p className="text-sm text-green-700 dark:text-green-300 mb-2">
-                  For security, you must verify your email address before accessing the AI Chatbot.
+                  The verification link will take you directly to your AI Chatbot!
                 </p>
-                <p className="text-xs text-green-600 dark:text-green-400">
-                  ✨ The verification link will take you directly to: <br/>
-                  <span className="font-mono bg-green-50 dark:bg-green-900/20 px-1 rounded">
-                    superb-starlight-670243.netlify.app
-                  </span>
+                <p className="text-xs text-green-600 dark:text-green-400 font-mono bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded">
+                  superb-starlight-670243.netlify.app
                 </p>
               </div>
             </div>
           </div>
           
-          {/* Action buttons */}
           <div className="flex space-x-3">
             <Button
               onClick={onToggle}
@@ -257,7 +249,6 @@ const RegisterForm = ({ onToggle }) => {
           </div>
         </div>
 
-        {/* Help section */}
         <div className="glass rounded-2xl p-4 border border-yellow-200 dark:border-yellow-800">
           <div className="flex items-start space-x-2">
             <span className="text-yellow-500">💡</span>
@@ -267,23 +258,11 @@ const RegisterForm = ({ onToggle }) => {
               </p>
               <ul className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1">
                 <li>• Check your spam/junk folder</li>
-                <li>• Wait 2-3 minutes for the email to arrive</li>
+                <li>• Wait 2-3 minutes for delivery</li>
                 <li>• Make sure {userEmail} is correct</li>
                 <li>• Try registering again if needed</li>
               </ul>
             </div>
-          </div>
-        </div>
-
-        {/* Warning about verification requirement */}
-        <div className="glass-card rounded-2xl p-4 border-l-4 border-orange-500 bg-orange-50 dark:bg-orange-900/20">
-          <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-            <p className="text-sm font-medium text-orange-800 dark:text-orange-200">
-              ⚠️ You cannot access the AI Chatbot until you verify your email
-            </p>
           </div>
         </div>
       </div>
@@ -350,7 +329,7 @@ const RegisterForm = ({ onToggle }) => {
           </button>
         </div>
 
-        {/* Enhanced Password Requirements */}
+        {/* Password Requirements */}
         {password && (
           <div className="space-y-3">
             <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -408,7 +387,7 @@ const RegisterForm = ({ onToggle }) => {
         </div>
       </form>
 
-      {/* Important note about email verification */}
+      {/* Important verification notice */}
       <div className="mt-8 glass-card rounded-2xl p-4 border-l-4 border-blue-500">
         <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
           <span className="text-blue-500 mr-2">🔐</span>
@@ -421,15 +400,15 @@ const RegisterForm = ({ onToggle }) => {
           </li>
           <li className="flex items-start space-x-2">
             <span className="text-blue-500 font-bold">•</span>
-            <span>You cannot access the AI Chatbot without verification</span>
+            <span>Click the verification link in your email</span>
           </li>
           <li className="flex items-start space-x-2">
             <span className="text-blue-500 font-bold">•</span>
-            <span>The verification email will contain a direct link to the chatbot</span>
+            <span>The link will open your AI Chatbot directly</span>
           </li>
           <li className="flex items-start space-x-2">
             <span className="text-blue-500 font-bold">•</span>
-            <span>Click the link → Chatbot opens → Sign in → Start chatting!</span>
+            <span>Sign in and start chatting immediately!</span>
           </li>
         </ul>
       </div>
