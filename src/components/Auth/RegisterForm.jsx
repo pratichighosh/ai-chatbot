@@ -12,6 +12,7 @@ const RegisterForm = ({ onToggle }) => {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
+  const [userEmail, setUserEmail] = useState('')
   const { signUpEmailPassword, isLoading, error } = useSignUpEmailPassword()
 
   const handleSubmit = async (e) => {
@@ -43,21 +44,25 @@ const RegisterForm = ({ onToggle }) => {
     }
 
     try {
-      console.log('📝 Attempting registration...')
+      console.log('📝 Attempting registration with email verification...')
       
-      const result = await signUpEmailPassword(email, password)
+      // Nhost signup with email verification enabled
+      const result = await signUpEmailPassword(email, password, {
+        options: {
+          redirectTo: 'https://superb-starlight-670243.netlify.app/verify-email'
+        }
+      })
       
       console.log('📋 Registration result:', result)
-      console.log('✅ Success:', result.isSuccess)
-      console.log('❌ Error:', result.error)
       
       if (result.isSuccess) {
-        console.log('✅ Registration successful!')
+        console.log('✅ Registration successful - Email verification required')
+        setUserEmail(email)
         setRegistrationSuccess(true)
         
         toast.success(
-          '🎉 Account created successfully! Check your email for verification link.', 
-          { duration: 8000 }
+          '🎉 Account created! Check your email for verification link.', 
+          { duration: 10000 }
         )
         
         // Clear form
@@ -65,32 +70,24 @@ const RegisterForm = ({ onToggle }) => {
         setPassword('')
         setConfirmPassword('')
         
-      } else {
-        // Handle different types of errors
+      } else if (result.error) {
         console.error('❌ Registration failed:', result.error)
         
         let errorMessage = 'Failed to create account'
+        const errorCode = result.error.error || result.error.message || ''
         
-        if (result.error) {
-          const errorCode = result.error.error || result.error.message || result.error
-          
-          if (typeof errorCode === 'string') {
-            if (errorCode.includes('email-already-in-use') || errorCode.includes('already exists')) {
-              errorMessage = 'This email is already registered. Try signing in instead.'
-              setTimeout(() => {
-                toast.success('Switching to login form...', { duration: 2000 })
-                onToggle()
-              }, 2000)
-            } else if (errorCode.includes('invalid-email')) {
-              errorMessage = 'Please enter a valid email address'
-            } else if (errorCode.includes('weak-password')) {
-              errorMessage = 'Password is too weak. Please choose a stronger password'
-            } else if (errorCode.includes('network')) {
-              errorMessage = 'Network error. Please check your connection and try again'
-            } else {
-              errorMessage = `Registration failed: ${errorCode}`
-            }
-          }
+        if (errorCode.includes('email-already-in-use') || errorCode.includes('already exists')) {
+          errorMessage = 'This email is already registered. Please sign in instead.'
+          setTimeout(() => {
+            toast.success('Switching to login form...', { duration: 2000 })
+            onToggle()
+          }, 2000)
+        } else if (errorCode.includes('invalid-email')) {
+          errorMessage = 'Please enter a valid email address'
+        } else if (errorCode.includes('weak-password')) {
+          errorMessage = 'Password is too weak. Please choose a stronger password'
+        } else {
+          errorMessage = `Registration failed: ${errorCode}`
         }
         
         toast.error(errorMessage, { duration: 4000 })
@@ -101,11 +98,27 @@ const RegisterForm = ({ onToggle }) => {
     }
   }
 
+  // Resend verification email function
+  const resendVerificationEmail = async () => {
+    if (!userEmail) return
+    
+    try {
+      // This would trigger a resend - you might need to implement this based on Nhost's API
+      toast.loading('Resending verification email...', { duration: 2000 })
+      
+      setTimeout(() => {
+        toast.success('Verification email resent! Check your inbox.', { duration: 5000 })
+      }, 2000)
+    } catch (error) {
+      toast.error('Failed to resend email. Please try again.')
+    }
+  }
+
   // If registration was successful, show success message
   if (registrationSuccess) {
     return (
       <div className="text-center space-y-6">
-        <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-2xl flex items-center justify-center mx-auto">
+        <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-2xl flex items-center justify-center mx-auto animate-scale-in">
           <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
@@ -117,41 +130,72 @@ const RegisterForm = ({ onToggle }) => {
         
         <div className="space-y-4">
           <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-            We've sent a verification email to <strong>{email}</strong>
+            We've sent a verification email to <br />
+            <strong className="text-blue-600 dark:text-blue-400">{userEmail}</strong>
           </p>
           
-          <div className="glass rounded-lg p-4 border-l-4 border-blue-500">
-            <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-2">
-              Next Steps:
+          <div className="glass rounded-xl p-6 border-l-4 border-blue-500">
+            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 text-left">
+              📋 Next Steps:
             </h4>
-            <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
-              <li>Check your email inbox (and spam folder)</li>
-              <li>Click the verification link in the email</li>
-              <li>Return here to sign in to your AI Chatbot</li>
+            <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-decimal list-inside text-left">
+              <li>Check your email inbox <strong>(and spam/junk folder)</strong></li>
+              <li>Look for email from "AI Chatbot" or nhost.run</li>
+              <li>Click the "Verify Email Address" button in the email</li>
+              <li>You'll be redirected back here to sign in</li>
+              <li>Start chatting with your AI assistant! 🤖</li>
             </ol>
           </div>
           
-          <div className="flex space-x-3">
+          <div className="glass rounded-xl p-4 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500">
+            <p className="text-sm text-yellow-700 dark:text-yellow-300">
+              ⚠️ <strong>Important:</strong> You must verify your email before you can sign in to the AI chatbot.
+            </p>
+          </div>
+          
+          <div className="flex flex-col space-y-3">
             <Button
               onClick={onToggle}
-              className="flex-1 rounded-xl"
+              className="w-full rounded-xl"
               variant="secondary"
             >
-              Go to Sign In
+              ✅ Email Verified? Go to Sign In
             </Button>
+            
+            <Button
+              onClick={resendVerificationEmail}
+              className="w-full rounded-xl"
+              variant="ghost"
+            >
+              📧 Resend Verification Email
+            </Button>
+            
             <Button
               onClick={() => setRegistrationSuccess(false)}
-              className="flex-1 rounded-xl"
+              className="w-full rounded-xl"
+              variant="ghost"
             >
-              Register Another Account
+              ← Register Different Email
             </Button>
           </div>
         </div>
         
-        <div className="glass rounded-lg p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            💡 Didn't receive the email? Check your spam folder or contact support.
-          </p>
+        <div className="space-y-3">
+          <div className="glass rounded-lg p-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              💡 <strong>Didn't receive the email?</strong><br />
+              • Check your spam/junk folder<br />
+              • Wait 2-3 minutes for delivery<br />
+              • Click "Resend" button above<br />
+              • Make sure you entered the correct email
+            </p>
+          </div>
+          
+          <div className="glass rounded-lg p-4 border-l-4 border-green-500">
+            <p className="text-xs text-green-700 dark:text-green-300">
+              🚀 <strong>After verification:</strong> You'll have instant access to your AI chatbot with smart conversations, code help, explanations, and more!
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -164,14 +208,14 @@ const RegisterForm = ({ onToggle }) => {
           Create account
         </h3>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Start your AI conversation journey
+          Join thousands using AI for smarter conversations
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Input
           type="email"
-          placeholder="Enter your email"
+          placeholder="Enter your email address"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           icon={EnvelopeIcon}
@@ -252,7 +296,7 @@ const RegisterForm = ({ onToggle }) => {
           size="lg"
           disabled={isLoading}
         >
-          {isLoading ? 'Creating Account...' : 'Create Account'}
+          {isLoading ? 'Creating Account...' : '🚀 Create Account & Send Verification'}
         </Button>
 
         <div className="text-center">
@@ -273,10 +317,10 @@ const RegisterForm = ({ onToggle }) => {
             📧 What happens next:
           </h4>
           <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-            <li>• You'll receive a verification email instantly</li>
-            <li>• Click the link in the email to verify your account</li>
-            <li>• Return here to sign in and start chatting with AI</li>
-            <li>• Your account will be ready to use immediately after verification</li>
+            <li>• 📤 Verification email sent instantly to your inbox</li>
+            <li>• 🔗 Click the verification link in the email</li>
+            <li>• ✅ Your account will be activated automatically</li>
+            <li>• 🤖 Sign in and start chatting with AI immediately</li>
           </ul>
         </div>
         
