@@ -18,12 +18,16 @@ const EmailVerification = () => {
         const ticket = searchParams.get('ticket')
         const type = searchParams.get('type') || 'emailConfirm'
 
-        console.log('🔍 Email verification started:', { ticket, type, fullUrl: window.location.href })
+        console.log('🔍 Email verification started:', { 
+          ticket: ticket ? 'present' : 'missing', 
+          type, 
+          fullUrl: window.location.href 
+        })
 
         if (!ticket) {
           console.error('❌ No verification ticket found in URL')
           setStatus('error')
-          setMessage('Invalid verification link. Please check your email for the correct link.')
+          setMessage('Invalid verification link. Please check your email for the correct verification link.')
           return
         }
 
@@ -39,30 +43,36 @@ const EmailVerification = () => {
           setStatus('error')
           
           // Handle specific error types
-          if (result.error.message.includes('expired')) {
-            setMessage('This verification link has expired. Please request a new verification email.')
-          } else if (result.error.message.includes('invalid')) {
-            setMessage('This verification link is invalid. Please check your email for the correct link.')
-          } else if (result.error.message.includes('already')) {
-            setMessage('This email has already been verified. You can now sign in to your account.')
-            setStatus('success')
+          if (result.error.message) {
+            const errorMsg = result.error.message.toLowerCase()
+            if (errorMsg.includes('expired')) {
+              setMessage('This verification link has expired. Please request a new verification email by registering again.')
+            } else if (errorMsg.includes('invalid') || errorMsg.includes('not found')) {
+              setMessage('This verification link is invalid. Please check your email for the correct verification link.')
+            } else if (errorMsg.includes('already') || errorMsg.includes('verified')) {
+              setMessage('This email has already been verified. You can now sign in to your account.')
+              setStatus('success')
+              startCountdown()
+            } else {
+              setMessage(`Verification failed: ${result.error.message}`)
+            }
           } else {
-            setMessage(result.error.message || 'Email verification failed. Please try again.')
+            setMessage('Email verification failed. Please try again or request a new verification email.')
           }
         } else {
           console.log('✅ Email verified successfully!')
           setStatus('success')
-          setMessage('Email verified successfully! Redirecting to your AI Chatbot...')
+          setMessage('Email verified successfully! Welcome to AI Chatbot!')
           
-          toast.success('🎉 Email verified! Welcome to AI Chatbot!', { duration: 3000 })
+          toast.success('🎉 Email verified! You can now sign in and start chatting!', { duration: 5000 })
           
-          // Start countdown
+          // Start countdown for redirect
           startCountdown()
         }
       } catch (err) {
         console.error('❌ Verification error:', err)
         setStatus('error')
-        setMessage('An unexpected error occurred. Please try again or contact support.')
+        setMessage('An unexpected error occurred during verification. Please try again or contact support.')
       }
     }
 
@@ -70,21 +80,33 @@ const EmailVerification = () => {
   }, [location])
 
   const startCountdown = () => {
+    let timeLeft = 5
+    setCountdown(timeLeft)
+    
     const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          // Redirect to main app with verification success flag
-          window.location.href = 'https://superb-starlight-670243.netlify.app/?verified=true'
-          return 0
-        }
-        return prev - 1
-      })
+      timeLeft -= 1
+      setCountdown(timeLeft)
+      
+      if (timeLeft <= 0) {
+        clearInterval(timer)
+        redirectToApp()
+      }
     }, 1000)
+    
+    return timer
+  }
+
+  const redirectToApp = () => {
+    // Redirect to main app with verification success flag
+    const baseUrl = 'https://superb-starlight-670243.netlify.app'
+    const redirectUrl = `${baseUrl}/?verified=true`
+    
+    console.log('🔄 Redirecting to:', redirectUrl)
+    window.location.href = redirectUrl
   }
 
   const handleManualRedirect = () => {
-    window.location.href = 'https://superb-starlight-670243.netlify.app/?verified=true'
+    redirectToApp()
   }
 
   return (
@@ -93,7 +115,7 @@ const EmailVerification = () => {
         <div className="text-center">
           {/* Enhanced Logo */}
           <div className="relative mb-6">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto shadow-2xl animate-pulse">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto shadow-2xl">
               <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
@@ -101,6 +123,14 @@ const EmailVerification = () => {
             {status === 'success' && (
               <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-400 rounded-full flex items-center justify-center shadow-lg animate-bounce">
                 ✅
+              </div>
+            )}
+            {status === 'verifying' && (
+              <div className="absolute -top-2 -right-2 w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center shadow-lg">
+                <svg className="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                </svg>
               </div>
             )}
           </div>
@@ -138,7 +168,7 @@ const EmailVerification = () => {
 
                 <div className="glass rounded-2xl p-4 border-l-4 border-blue-500">
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    🔐 This process is secure and encrypted
+                    🔐 Secure verification in progress...
                   </p>
                 </div>
               </div>
@@ -169,7 +199,7 @@ const EmailVerification = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span className="font-semibold">
-                        Redirecting in {countdown} seconds...
+                        Redirecting to AI Chatbot in {countdown} seconds...
                       </span>
                     </div>
                   </div>
@@ -178,12 +208,13 @@ const EmailVerification = () => {
                 <div className="space-y-4">
                   <div className="glass rounded-2xl p-4 border-l-4 border-green-500">
                     <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
-                      🚀 What's Next?
+                      🚀 You're All Set!
                     </h4>
                     <ul className="text-sm text-green-700 dark:text-green-300 space-y-1 text-left">
-                      <li>• You'll be redirected automatically</li>
+                      <li>• Your email is now verified</li>
+                      <li>• You'll be redirected to the AI Chatbot</li>
                       <li>• Sign in with your email and password</li>
-                      <li>• Start chatting with your AI assistant!</li>
+                      <li>• Start chatting with AI immediately!</li>
                     </ul>
                   </div>
 
@@ -219,7 +250,7 @@ const EmailVerification = () => {
                     💡 What to try:
                   </h4>
                   <ul className="text-sm text-red-700 dark:text-red-300 space-y-1 text-left">
-                    <li>• Check your email for a new verification link</li>
+                    <li>• Check your email for a newer verification link</li>
                     <li>• Make sure you're clicking the latest email</li>
                     <li>• Try registering again if the link expired</li>
                     <li>• Contact support if problems persist</li>
@@ -231,7 +262,7 @@ const EmailVerification = () => {
                     onClick={handleManualRedirect}
                     className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200"
                   >
-                    Back to Login
+                    Go to Login Page
                   </button>
                   <button
                     onClick={() => window.location.reload()}
