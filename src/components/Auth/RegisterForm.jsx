@@ -45,25 +45,20 @@ const RegisterForm = ({ onToggle }) => {
     try {
       console.log('📝 Attempting registration with email verification...')
       
-      // Use Nhost signup with enhanced configuration
+      // Fixed Nhost signup configuration
       const result = await signUpEmailPassword(email, password, {
-        redirectTo: `${window.location.origin}/verify-email`,
-        allowedRoles: ['user', 'me'],
-        defaultRole: 'user',
-        displayName: email.split('@')[0], // Use email prefix as display name
-        metadata: {
-          source: 'ai-chatbot-app',
-          registrationDate: new Date().toISOString(),
-          appVersion: '1.0.0'
-        },
-        options: {
-          emailRedirectTo: `${window.location.origin}/verify-email`
-        }
+        // Use the correct redirect URL format
+        redirectTo: 'https://superb-starlight-670243.netlify.app/verify-email',
+        // Keep it simple - avoid complex metadata that might cause 400 errors
+        displayName: email.split('@')[0]
       })
       
       console.log('📋 Registration result:', result)
       console.log('✅ Success:', result.isSuccess)
-      console.log('❌ Error:', result.error)
+      
+      if (result.error) {
+        console.log('❌ Error details:', JSON.stringify(result.error, null, 2))
+      }
       
       if (result.isSuccess) {
         console.log('✅ Registration successful! Email verification required.')
@@ -96,7 +91,10 @@ const RegisterForm = ({ onToggle }) => {
           if (errorDetails.message) {
             const message = errorDetails.message.toLowerCase()
             
-            if (message.includes('email-already-in-use') || message.includes('already exists') || message.includes('duplicate')) {
+            if (message.includes('email-already-in-use') || 
+                message.includes('already exists') || 
+                message.includes('duplicate') ||
+                message.includes('user-already-exists')) {
               errorMessage = 'This email is already registered. Try signing in instead.'
               toast.error(errorMessage, { duration: 4000 })
               setTimeout(() => {
@@ -106,17 +104,25 @@ const RegisterForm = ({ onToggle }) => {
               return
             } else if (message.includes('invalid-email') || message.includes('email')) {
               errorMessage = 'Please enter a valid email address'
-            } else if (message.includes('weak-password') || message.includes('password')) {
+            } else if (message.includes('weak-password') || 
+                      message.includes('password') || 
+                      message.includes('short')) {
               errorMessage = 'Password is too weak. Please choose a stronger password (min 8 characters)'
             } else if (message.includes('network') || message.includes('connection')) {
               errorMessage = 'Network error. Please check your connection and try again'
-            } else if (message.includes('signup') || message.includes('registration')) {
+            } else if (message.includes('signup') || 
+                      message.includes('registration') || 
+                      message.includes('disabled')) {
               errorMessage = 'Registration is currently disabled. Please contact support.'
+            } else if (message.includes('invalid') && message.includes('request')) {
+              errorMessage = 'Invalid registration request. Please check your details and try again.'
             } else {
               errorMessage = `Registration failed: ${errorDetails.message}`
             }
           } else if (errorDetails.error) {
             errorMessage = `Error: ${errorDetails.error}`
+          } else if (errorDetails.status === 400) {
+            errorMessage = 'Invalid registration data. Please check your email and password format.'
           } else {
             errorMessage = 'Registration failed. Please check your email and password.'
           }
@@ -126,7 +132,15 @@ const RegisterForm = ({ onToggle }) => {
       }
     } catch (err) {
       console.error('❌ Registration error:', err)
-      toast.error('Network error. Please check your connection and try again.')
+      
+      // Handle network and other errors
+      if (err.message.includes('400')) {
+        toast.error('Invalid registration data. Please check your email format and password strength.')
+      } else if (err.message.includes('network') || err.message.includes('fetch')) {
+        toast.error('Network error. Please check your connection and try again.')
+      } else {
+        toast.error('Registration failed. Please try again.')
+      }
     }
   }
 
@@ -402,12 +416,23 @@ const RegisterForm = ({ onToggle }) => {
           </ul>
         </div>
         
-        {/* Debug info for development */}
+        {/* Enhanced Debug info for development */}
         {import.meta.env.DEV && error && (
           <div className="glass rounded-2xl p-4 border-l-4 border-red-500">
-            <p className="text-sm text-red-600 dark:text-red-400">
-              Debug info: {JSON.stringify(error, null, 2)}
-            </p>
+            <h4 className="font-semibold text-red-600 dark:text-red-400 mb-2">
+              Debug Information:
+            </h4>
+            <div className="text-xs text-red-600 dark:text-red-400 space-y-1">
+              <p><strong>Error Message:</strong> {error.message}</p>
+              <p><strong>Error Status:</strong> {error.status}</p>
+              <p><strong>Error Code:</strong> {error.error}</p>
+              <details className="mt-2">
+                <summary className="cursor-pointer font-semibold">Full Error Object</summary>
+                <pre className="mt-2 text-xs bg-red-50 dark:bg-red-900/20 p-2 rounded overflow-auto">
+                  {JSON.stringify(error, null, 2)}
+                </pre>
+              </details>
+            </div>
           </div>
         )}
       </div>
