@@ -11,6 +11,7 @@ const RegisterForm = ({ onToggle }) => {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const { signUpEmailPassword, isLoading, error } = useSignUpEmailPassword()
 
   const handleSubmit = async (e) => {
@@ -36,14 +37,8 @@ const RegisterForm = ({ onToggle }) => {
       return
     }
 
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters')
-      return
-    }
-
-    // Password strength validation
     if (password.length < 8) {
-      toast.error('Password should be at least 8 characters for better security')
+      toast.error('Password must be at least 8 characters')
       return
     }
 
@@ -58,20 +53,17 @@ const RegisterForm = ({ onToggle }) => {
       
       if (result.isSuccess) {
         console.log('✅ Registration successful!')
-        toast.success('🎉 Account created successfully! Please check your email to verify your account.', {
-          duration: 5000
-        })
+        setRegistrationSuccess(true)
+        
+        toast.success(
+          '🎉 Account created successfully! Check your email for verification link.', 
+          { duration: 8000 }
+        )
         
         // Clear form
         setEmail('')
         setPassword('')
         setConfirmPassword('')
-        
-        // Optional: Auto-switch to login after a delay
-        setTimeout(() => {
-          toast.success('Switching to login...', { duration: 2000 })
-          onToggle()
-        }, 3000)
         
       } else {
         // Handle different types of errors
@@ -107,6 +99,62 @@ const RegisterForm = ({ onToggle }) => {
       console.error('❌ Registration error:', err)
       toast.error('Network error. Please check your connection and try again.')
     }
+  }
+
+  // If registration was successful, show success message
+  if (registrationSuccess) {
+    return (
+      <div className="text-center space-y-6">
+        <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-2xl flex items-center justify-center mx-auto">
+          <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        
+        <h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
+          Check Your Email! 📧
+        </h3>
+        
+        <div className="space-y-4">
+          <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+            We've sent a verification email to <strong>{email}</strong>
+          </p>
+          
+          <div className="glass rounded-lg p-4 border-l-4 border-blue-500">
+            <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-2">
+              Next Steps:
+            </h4>
+            <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+              <li>Check your email inbox (and spam folder)</li>
+              <li>Click the verification link in the email</li>
+              <li>Return here to sign in to your AI Chatbot</li>
+            </ol>
+          </div>
+          
+          <div className="flex space-x-3">
+            <Button
+              onClick={onToggle}
+              className="flex-1 rounded-xl"
+              variant="secondary"
+            >
+              Go to Sign In
+            </Button>
+            <Button
+              onClick={() => setRegistrationSuccess(false)}
+              className="flex-1 rounded-xl"
+            >
+              Register Another Account
+            </Button>
+          </div>
+        </div>
+        
+        <div className="glass rounded-lg p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            💡 Didn't receive the email? Check your spam folder or contact support.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -222,13 +270,13 @@ const RegisterForm = ({ onToggle }) => {
       <div className="mt-6 space-y-3">
         <div className="glass rounded-lg p-4">
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            📧 Registration Help:
+            📧 What happens next:
           </h4>
           <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-            <li>• Use a valid email address</li>
-            <li>• Password must be at least 8 characters</li>
-            <li>• Check your email for verification link</li>
-            <li>• Make sure passwords match</li>
+            <li>• You'll receive a verification email instantly</li>
+            <li>• Click the link in the email to verify your account</li>
+            <li>• Return here to sign in and start chatting with AI</li>
+            <li>• Your account will be ready to use immediately after verification</li>
           </ul>
         </div>
         

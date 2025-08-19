@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { ApolloProvider } from '@apollo/client'
 import { Toaster } from 'react-hot-toast'
 import { NhostProvider } from '@nhost/react'
@@ -9,12 +10,13 @@ import { useAuth } from './hooks/useAuth'
 import AuthContainer from './components/Auth/AuthContainer'
 import Header from './components/Layout/Header'
 import ChatContainer from './components/Chat/ChatContainer'
+import EmailVerification from './components/Auth/EmailVerification'
 import LoadingSpinner from './components/UI/LoadingSpinner'
 
 // Import styles
 import './styles/globals.css'
 import './styles/themes.css'
- import './styles/animations.css'
+import './styles/animations.css'
 
 const AppContent = () => {
   const { isAuthenticated, isLoading } = useAuth()
@@ -39,15 +41,25 @@ const AppContent = () => {
     )
   }
 
-  if (!isAuthenticated) {
-    return <AuthContainer />
-  }
-
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <Header />
-      <ChatContainer />
-    </div>
+    <Router>
+      <Routes>
+        {/* Email Verification Route */}
+        <Route path="/verify-email" element={<EmailVerification />} />
+        
+        {/* Main App Routes */}
+        <Route path="/*" element={
+          !isAuthenticated ? (
+            <AuthContainer />
+          ) : (
+            <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+              <Header />
+              <ChatContainer />
+            </div>
+          )
+        } />
+      </Routes>
+    </Router>
   )
 }
 
