@@ -233,17 +233,7 @@ const RegisterForm = ({ onToggle }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div>
-                <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
-                  🚀 Direct Chatbot Access
-                </h4>
-                <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
-                  The verification link will take you directly to your AI Chatbot!
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400 font-mono bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
-                  superb-starlight-670243.netlify.app
-                </p>
-              </div>
+             
             </div>
           </div>
           
