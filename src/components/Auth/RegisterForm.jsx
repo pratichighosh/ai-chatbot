@@ -42,34 +42,50 @@ const RegisterForm = ({ onToggle }) => {
       return
     }
 
+    // Check password strength
+    const hasUpperCase = /[A-Z]/.test(password)
+    const hasLowerCase = /[a-z]/.test(password)
+    const hasNumbers = /\d/.test(password)
+    
+    if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
+      toast.error('Password must contain uppercase, lowercase, and numbers')
+      return
+    }
+
     try {
-      console.log('📝 Attempting registration with email verification...')
+      console.log('📝 Attempting registration...')
       
-      // Fixed Nhost signup configuration
-      const result = await signUpEmailPassword(email, password, {
-        // Use the correct redirect URL format
-        redirectTo: 'https://superb-starlight-670243.netlify.app/verify-email',
-        // Keep it simple - avoid complex metadata that might cause 400 errors
-        displayName: email.split('@')[0]
-      })
+      // Method 1: Try with minimal parameters first
+      console.log('Trying minimal registration...')
+      let result = await signUpEmailPassword(email, password)
       
-      console.log('📋 Registration result:', result)
-      console.log('✅ Success:', result.isSuccess)
+      console.log('📋 Minimal registration result:', result)
       
-      if (result.error) {
-        console.log('❌ Error details:', JSON.stringify(result.error, null, 2))
+      // If minimal registration fails, it's likely a fundamental issue
+      if (!result.isSuccess && result.error) {
+        console.log('❌ Minimal registration failed, trying alternative method...')
+        
+        // Method 2: Try with different parameter structure
+        result = await signUpEmailPassword(email, password, {
+          redirectTo: `${window.location.origin}/verify-email`
+        })
+        
+        console.log('📋 Alternative registration result:', result)
+      }
+      
+      // If still failing, try Method 3: Manual fetch
+      if (!result.isSuccess && result.error) {
+        console.log('❌ Hook method failed, trying manual fetch...')
+        result = await manualRegistration(email, password)
       }
       
       if (result.isSuccess) {
-        console.log('✅ Registration successful! Email verification required.')
+        console.log('✅ Registration successful!')
         setRegistrationSuccess(true)
         
         toast.success(
           '🎉 Account created! Check your email for verification link.', 
-          { 
-            duration: 8000,
-            icon: '📧'
-          }
+          { duration: 8000 }
         )
         
         // Clear form
@@ -78,73 +94,88 @@ const RegisterForm = ({ onToggle }) => {
         setConfirmPassword('')
         
       } else {
-        // Enhanced error handling
-        console.error('❌ Registration failed:', result.error)
-        
-        let errorMessage = 'Failed to create account'
-        
-        if (result.error) {
-          const errorDetails = result.error
-          console.log('Error details:', errorDetails)
-          
-          // Handle different error types
-          if (errorDetails.message) {
-            const message = errorDetails.message.toLowerCase()
-            
-            if (message.includes('email-already-in-use') || 
-                message.includes('already exists') || 
-                message.includes('duplicate') ||
-                message.includes('user-already-exists')) {
-              errorMessage = 'This email is already registered. Try signing in instead.'
-              toast.error(errorMessage, { duration: 4000 })
-              setTimeout(() => {
-                toast.success('Switching to login form...', { duration: 2000 })
-                onToggle()
-              }, 2000)
-              return
-            } else if (message.includes('invalid-email') || message.includes('email')) {
-              errorMessage = 'Please enter a valid email address'
-            } else if (message.includes('weak-password') || 
-                      message.includes('password') || 
-                      message.includes('short')) {
-              errorMessage = 'Password is too weak. Please choose a stronger password (min 8 characters)'
-            } else if (message.includes('network') || message.includes('connection')) {
-              errorMessage = 'Network error. Please check your connection and try again'
-            } else if (message.includes('signup') || 
-                      message.includes('registration') || 
-                      message.includes('disabled')) {
-              errorMessage = 'Registration is currently disabled. Please contact support.'
-            } else if (message.includes('invalid') && message.includes('request')) {
-              errorMessage = 'Invalid registration request. Please check your details and try again.'
-            } else {
-              errorMessage = `Registration failed: ${errorDetails.message}`
-            }
-          } else if (errorDetails.error) {
-            errorMessage = `Error: ${errorDetails.error}`
-          } else if (errorDetails.status === 400) {
-            errorMessage = 'Invalid registration data. Please check your email and password format.'
-          } else {
-            errorMessage = 'Registration failed. Please check your email and password.'
-          }
-        }
-        
-        toast.error(errorMessage, { duration: 5000 })
+        console.error('❌ All registration methods failed:', result.error)
+        handleRegistrationError(result.error)
       }
+      
     } catch (err) {
       console.error('❌ Registration error:', err)
-      
-      // Handle network and other errors
-      if (err.message.includes('400')) {
-        toast.error('Invalid registration data. Please check your email format and password strength.')
-      } else if (err.message.includes('network') || err.message.includes('fetch')) {
-        toast.error('Network error. Please check your connection and try again.')
-      } else {
-        toast.error('Registration failed. Please try again.')
-      }
+      toast.error('Registration failed. Please try again.')
     }
   }
 
-  // Enhanced success state after registration
+  // Manual registration method as fallback
+  const manualRegistration = async (email, password) => {
+    try {
+      const response = await fetch(`https://monujjeszxsjvhmhbgek.auth.ap-south-1.nhost.run/v1/signup/email-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.toLowerCase().trim(),
+          password: password,
+          options: {
+            redirectTo: `${window.location.origin}/verify-email`
+          }
+        })
+      })
+
+      console.log('Manual registration response status:', response.status)
+      
+      const data = await response.json()
+      console.log('Manual registration data:', data)
+
+      if (response.ok) {
+        return { isSuccess: true, data }
+      } else {
+        return { isSuccess: false, error: data }
+      }
+    } catch (error) {
+      console.error('Manual registration error:', error)
+      return { isSuccess: false, error }
+    }
+  }
+
+  const handleRegistrationError = (errorDetails) => {
+    console.log('Handling error:', errorDetails)
+    
+    let errorMessage = 'Registration failed'
+    
+    if (errorDetails) {
+      const message = errorDetails.message?.toLowerCase() || ''
+      const status = errorDetails.status
+      
+      if (status === 400) {
+        if (message.includes('email')) {
+          errorMessage = 'Invalid email format. Please use a valid email address.'
+        } else if (message.includes('password')) {
+          errorMessage = 'Password does not meet requirements. Must be 8+ characters with uppercase, lowercase, and numbers.'
+        } else if (message.includes('user-already-exists') || message.includes('already exists')) {
+          errorMessage = 'This email is already registered. Try signing in instead.'
+          setTimeout(() => {
+            toast.success('Switching to login...', { duration: 2000 })
+            onToggle()
+          }, 2000)
+          return
+        } else {
+          errorMessage = 'Invalid registration data. Please check your information.'
+        }
+      } else if (status === 422) {
+        errorMessage = 'Validation error. Please check your email and password format.'
+      } else if (status === 429) {
+        errorMessage = 'Too many registration attempts. Please wait and try again.'
+      } else if (message.includes('network')) {
+        errorMessage = 'Network error. Please check your connection.'
+      } else {
+        errorMessage = errorDetails.message || 'Registration failed. Please try again.'
+      }
+    }
+    
+    toast.error(errorMessage, { duration: 6000 })
+  }
+
+  // Success state
   if (registrationSuccess) {
     return (
       <div className="text-center space-y-8 animate-fade-in">
@@ -174,24 +205,24 @@ const RegisterForm = ({ onToggle }) => {
         <div className="space-y-6">
           <div className="glass-card rounded-2xl p-6 border-l-4 border-blue-500">
             <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
-              <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm mr-2">1</span>
+              <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm mr-2">✓</span>
               Next Steps:
             </h4>
             <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-none">
               <li className="flex items-start space-x-2">
-                <span className="text-blue-500 font-bold">•</span>
-                <span>Check your email inbox (and spam/junk folder)</span>
+                <span className="text-blue-500 font-bold">1.</span>
+                <span>Check your email inbox (and spam folder)</span>
               </li>
               <li className="flex items-start space-x-2">
-                <span className="text-blue-500 font-bold">•</span>
-                <span>Click the <strong>"Verify Email"</strong> button in the email</span>
+                <span className="text-blue-500 font-bold">2.</span>
+                <span>Click the <strong>"Verify Email"</strong> button</span>
               </li>
               <li className="flex items-start space-x-2">
-                <span className="text-blue-500 font-bold">•</span>
-                <span>You'll be redirected back to the AI Chatbot</span>
+                <span className="text-blue-500 font-bold">3.</span>
+                <span>You'll be redirected to the AI Chatbot</span>
               </li>
               <li className="flex items-start space-x-2">
-                <span className="text-blue-500 font-bold">•</span>
+                <span className="text-blue-500 font-bold">4.</span>
                 <span>Sign in and start chatting! 🤖</span>
               </li>
             </ol>
@@ -206,10 +237,10 @@ const RegisterForm = ({ onToggle }) => {
               </div>
               <div>
                 <h4 className="font-semibold text-green-800 dark:text-green-200 mb-1">
-                  🚀 Direct Access Link
+                  🚀 Direct Redirect
                 </h4>
                 <p className="text-sm text-green-700 dark:text-green-300">
-                  The verification email will redirect you directly to:
+                  Clicking the verification link will open your AI Chatbot at:
                 </p>
                 <p className="text-xs font-mono bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded mt-1 break-all">
                   superb-starlight-670243.netlify.app
@@ -230,25 +261,8 @@ const RegisterForm = ({ onToggle }) => {
               onClick={() => setRegistrationSuccess(false)}
               className="flex-1 rounded-2xl"
             >
-              Register Another Account
+              Try Another Email
             </Button>
-          </div>
-        </div>
-        
-        <div className="glass rounded-2xl p-4 border border-yellow-200 dark:border-yellow-800">
-          <div className="flex items-start space-x-2">
-            <span className="text-yellow-500">💡</span>
-            <div className="text-left">
-              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                Didn't receive the email?
-              </p>
-              <ul className="text-xs text-yellow-700 dark:text-yellow-300 mt-1 space-y-1">
-                <li>• Check your spam/junk folder</li>
-                <li>• Wait a few minutes and refresh your inbox</li>
-                <li>• Make sure the email address is correct</li>
-                <li>• Try registering again if needed</li>
-              </ul>
-            </div>
           </div>
         </div>
       </div>
@@ -280,7 +294,7 @@ const RegisterForm = ({ onToggle }) => {
         <div className="relative">
           <Input
             type={showPassword ? 'text' : 'password'}
-            placeholder="Create a strong password (min 8 characters)"
+            placeholder="Create password (8+ chars, A-z, 0-9)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             icon={LockClosedIcon}
@@ -292,11 +306,7 @@ const RegisterForm = ({ onToggle }) => {
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
-            {showPassword ? (
-              <EyeSlashIcon className="h-5 w-5" />
-            ) : (
-              <EyeIcon className="h-5 w-5" />
-            )}
+            {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
           </button>
         </div>
 
@@ -315,45 +325,33 @@ const RegisterForm = ({ onToggle }) => {
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
-            {showConfirmPassword ? (
-              <EyeSlashIcon className="h-5 w-5" />
-            ) : (
-              <EyeIcon className="h-5 w-5" />
-            )}
+            {showConfirmPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
           </button>
         </div>
 
-        {/* Enhanced Password Strength Indicator */}
+        {/* Enhanced Password Requirements */}
         {password && (
           <div className="space-y-3">
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              Password strength:
+              Password requirements:
             </div>
-            <div className="flex space-x-1">
-              <div className={`h-2 flex-1 rounded-full transition-colors ${
-                password.length >= 6 ? 'bg-red-400' : 'bg-gray-200 dark:bg-gray-700'
-              }`}></div>
-              <div className={`h-2 flex-1 rounded-full transition-colors ${
-                password.length >= 8 ? 'bg-yellow-400' : 'bg-gray-200 dark:bg-gray-700'
-              }`}></div>
-              <div className={`h-2 flex-1 rounded-full transition-colors ${
-                password.length >= 10 && /[A-Z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*(),.?":{}|<>]/.test(password) 
-                ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'
-              }`}></div>
-            </div>
-            <div className="text-sm">
-              {password.length < 6 && (
-                <span className="text-red-600 dark:text-red-400">Too short</span>
-              )}
-              {password.length >= 6 && password.length < 8 && (
-                <span className="text-red-600 dark:text-red-400">Weak</span>
-              )}
-              {password.length >= 8 && password.length < 10 && (
-                <span className="text-yellow-600 dark:text-yellow-400">Good</span>
-              )}
-              {password.length >= 10 && /[A-Z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*(),.?":{}|<>]/.test(password) && (
-                <span className="text-green-600 dark:text-green-400">Strong</span>
-              )}
+            <div className="space-y-2">
+              <div className={`flex items-center space-x-2 text-sm ${password.length >= 8 ? 'text-green-600' : 'text-red-600'}`}>
+                <span>{password.length >= 8 ? '✓' : '✗'}</span>
+                <span>At least 8 characters</span>
+              </div>
+              <div className={`flex items-center space-x-2 text-sm ${/[A-Z]/.test(password) ? 'text-green-600' : 'text-red-600'}`}>
+                <span>{/[A-Z]/.test(password) ? '✓' : '✗'}</span>
+                <span>Uppercase letter</span>
+              </div>
+              <div className={`flex items-center space-x-2 text-sm ${/[a-z]/.test(password) ? 'text-green-600' : 'text-red-600'}`}>
+                <span>{/[a-z]/.test(password) ? '✓' : '✗'}</span>
+                <span>Lowercase letter</span>
+              </div>
+              <div className={`flex items-center space-x-2 text-sm ${/\d/.test(password) ? 'text-green-600' : 'text-red-600'}`}>
+                <span>{/\d/.test(password) ? '✓' : '✗'}</span>
+                <span>Number</span>
+              </div>
             </div>
           </div>
         )}
@@ -393,42 +391,45 @@ const RegisterForm = ({ onToggle }) => {
       <div className="mt-8 space-y-4">
         <div className="glass-card rounded-2xl p-4">
           <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
-            <span className="text-blue-500 mr-2">🚀</span>
-            After Registration:
+            <span className="text-blue-500 mr-2">📧</span>
+            Email Verification Process:
           </h4>
           <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-2">
             <li className="flex items-start space-x-2">
               <span className="text-blue-500 font-bold">1.</span>
-              <span>You'll receive a verification email instantly</span>
+              <span>Enter your email and create a strong password</span>
             </li>
             <li className="flex items-start space-x-2">
               <span className="text-blue-500 font-bold">2.</span>
-              <span>Click the verification button in the email</span>
+              <span>Click "Create Account" - we'll send verification email</span>
             </li>
             <li className="flex items-start space-x-2">
               <span className="text-blue-500 font-bold">3.</span>
-              <span>You'll be redirected directly to the AI Chatbot</span>
+              <span>Check your email and click verification link</span>
             </li>
             <li className="flex items-start space-x-2">
               <span className="text-blue-500 font-bold">4.</span>
-              <span>Sign in and start chatting immediately!</span>
+              <span>Verification link opens your AI Chatbot automatically</span>
+            </li>
+            <li className="flex items-start space-x-2">
+              <span className="text-blue-500 font-bold">5.</span>
+              <span>Sign in with your credentials and start chatting!</span>
             </li>
           </ul>
         </div>
         
-        {/* Enhanced Debug info for development */}
+        {/* Debug info for development */}
         {import.meta.env.DEV && error && (
           <div className="glass rounded-2xl p-4 border-l-4 border-red-500">
             <h4 className="font-semibold text-red-600 dark:text-red-400 mb-2">
-              Debug Information:
+              🐛 Debug Information:
             </h4>
             <div className="text-xs text-red-600 dark:text-red-400 space-y-1">
               <p><strong>Error Message:</strong> {error.message}</p>
               <p><strong>Error Status:</strong> {error.status}</p>
-              <p><strong>Error Code:</strong> {error.error}</p>
               <details className="mt-2">
-                <summary className="cursor-pointer font-semibold">Full Error Object</summary>
-                <pre className="mt-2 text-xs bg-red-50 dark:bg-red-900/20 p-2 rounded overflow-auto">
+                <summary className="cursor-pointer font-semibold">Full Error Details</summary>
+                <pre className="mt-2 text-xs bg-red-50 dark:bg-red-900/20 p-2 rounded overflow-auto max-h-32">
                   {JSON.stringify(error, null, 2)}
                 </pre>
               </details>
