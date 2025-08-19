@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { nhost } from '../utils/nhost'
+import { nhost } from '../../utils/nhost'
 import toast from 'react-hot-toast'
 
 const EmailVerification = () => {
@@ -159,7 +159,7 @@ const EmailVerification = () => {
         <div className="text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Need help? Contact us at{' '}
-            <a href="mailto:support@superb-starlight-670243.netlify.app" className="text-blue-600 hover:text-blue-500">
+            <a href="mailto:support@example.com" className="text-blue-600 hover:text-blue-500">
               support@example.com
             </a>
           </p>
