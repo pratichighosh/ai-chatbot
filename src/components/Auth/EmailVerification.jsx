@@ -250,57 +250,11 @@ const EmailVerification = () => {
               </div>
             )}
 
-            {status === 'error' && (
-              <div className="space-y-6 animate-fade-in">
-                <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-3xl flex items-center justify-center mx-auto">
-                  <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
-                
-                <div>
-                  <h3 className="text-2xl font-bold text-red-800 dark:text-red-200 mb-2">
-                   
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    {message}
-                  </p>
-                </div>
+            {status === 'error' && (() => {
+  redirectToApp()
+  return null
+})()}
 
-                <div className="glass rounded-2xl p-4 border-l-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
-                
-                 
-                </div>
-
-                {/* Debug information for development */}
-                {import.meta.env.DEV && debugInfo.allParams && (
-                  <div className="glass rounded-2xl p-4 border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
-                      
-                    </h4>
-                    <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                      <p><strong>URL:</strong> {debugInfo.fullUrl}</p>
-                      <p><strong>Parameters:</strong> {JSON.stringify(debugInfo.allParams, null, 2)}</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex space-x-3">
-                  <button
-                    onClick={handleManualRedirect}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200"
-                  >
-                    Go to Chatbot
-                  </button>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200"
-                  >
-                  
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
