@@ -7,33 +7,53 @@ const EmailVerification = () => {
   const [status, setStatus] = useState('verifying') // verifying, success, error
   const [message, setMessage] = useState('')
   const [countdown, setCountdown] = useState(5)
+  const [debugInfo, setDebugInfo] = useState({})
   const location = useLocation()
   const navigate = useNavigate()
 
   useEffect(() => {
     const verifyEmail = async () => {
       try {
-        // Get verification parameters from URL
+        // Get ALL URL parameters for debugging
         const searchParams = new URLSearchParams(location.search)
-        const ticket = searchParams.get('ticket')
-        const type = searchParams.get('type') || 'emailConfirm'
-
-        console.log('🔍 Email verification started:', { 
-          ticket: ticket ? 'present' : 'missing', 
-          type, 
-          fullUrl: window.location.href 
+        const urlParams = Object.fromEntries(searchParams.entries())
+        
+        console.log('🔍 Email verification started')
+        console.log('Full URL:', window.location.href)
+        console.log('Search params:', location.search)
+        console.log('All parameters:', urlParams)
+        
+        setDebugInfo({
+          fullUrl: window.location.href,
+          searchParams: location.search,
+          allParams: urlParams
         })
 
+        // Try different parameter names that Nhost might use
+        const ticket = searchParams.get('ticket') || 
+                      searchParams.get('token') || 
+                      searchParams.get('verification_token') ||
+                      searchParams.get('emailRedirectToken')
+                      
+        const type = searchParams.get('type') || 
+                    searchParams.get('action') || 
+                    'emailConfirm'
+
+        console.log('🎫 Extracted parameters:', { ticket, type })
+
         if (!ticket) {
-          console.error('❌ No verification ticket found in URL')
+          console.error('❌ No verification token found in URL')
+          console.log('Available parameters:', Object.keys(urlParams))
           setStatus('error')
-          setMessage('Invalid verification link. Please check your email for the correct verification link.')
+          setMessage(`No verification token found in URL. Available parameters: ${Object.keys(urlParams).join(', ') || 'none'}`)
           return
         }
 
         console.log('📧 Attempting email verification with Nhost...')
+        console.log('Using ticket:', ticket.substring(0, 20) + '...')
+        console.log('Using type:', type)
         
-        // Call Nhost email verification
+        // Call Nhost email verification with the extracted parameters
         const result = await nhost.auth.confirm(ticket, type)
 
         console.log('📋 Verification result:', result)
@@ -46,18 +66,20 @@ const EmailVerification = () => {
           if (result.error.message) {
             const errorMsg = result.error.message.toLowerCase()
             if (errorMsg.includes('expired')) {
-              setMessage('This verification link has expired. Please request a new verification email by registering again.')
-            } else if (errorMsg.includes('invalid') || errorMsg.includes('not found')) {
-              setMessage('This verification link is invalid. Please check your email for the correct verification link.')
+              setMessage('This verification link has expired. Please register again to get a new verification email.')
+            } else if (errorMsg.includes('invalid') || errorMsg.includes('not found') || errorMsg.includes('token')) {
+              setMessage('This verification link is invalid or has already been used. Please try registering again if needed.')
             } else if (errorMsg.includes('already') || errorMsg.includes('verified')) {
-              setMessage('This email has already been verified. You can now sign in to your account.')
+              console.log('✅ Email already verified - treating as success')
+              setMessage('Your email has already been verified. You can now sign in to your account.')
               setStatus('success')
               startCountdown()
+              return
             } else {
               setMessage(`Verification failed: ${result.error.message}`)
             }
           } else {
-            setMessage('Email verification failed. Please try again or request a new verification email.')
+            setMessage('Email verification failed. The verification link may be invalid or expired.')
           }
         } else {
           console.log('✅ Email verified successfully!')
@@ -72,7 +94,7 @@ const EmailVerification = () => {
       } catch (err) {
         console.error('❌ Verification error:', err)
         setStatus('error')
-        setMessage('An unexpected error occurred during verification. Please try again or contact support.')
+        setMessage(`Verification error: ${err.message || 'Unknown error occurred'}`)
       }
     }
 
@@ -168,7 +190,7 @@ const EmailVerification = () => {
 
                 <div className="glass rounded-2xl p-4 border-l-4 border-blue-500">
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    🔐 Secure verification in progress...
+                    🔐 Processing verification token securely...
                   </p>
                 </div>
               </div>
@@ -199,7 +221,7 @@ const EmailVerification = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span className="font-semibold">
-                        Redirecting to AI Chatbot in {countdown} seconds...
+                        Opening AI Chatbot in {countdown} seconds...
                       </span>
                     </div>
                   </div>
@@ -208,13 +230,13 @@ const EmailVerification = () => {
                 <div className="space-y-4">
                   <div className="glass rounded-2xl p-4 border-l-4 border-green-500">
                     <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
-                      🚀 You're All Set!
+                      🚀 Ready to Chat!
                     </h4>
                     <ul className="text-sm text-green-700 dark:text-green-300 space-y-1 text-left">
-                      <li>• Your email is now verified</li>
-                      <li>• You'll be redirected to the AI Chatbot</li>
-                      <li>• Sign in with your email and password</li>
-                      <li>• Start chatting with AI immediately!</li>
+                      <li>• ✅ Your email is now verified</li>
+                      <li>• 🔄 Redirecting to AI Chatbot automatically</li>
+                      <li>• 🔐 Sign in with your email and password</li>
+                      <li>• 🤖 Start chatting with AI immediately!</li>
                     </ul>
                   </div>
 
@@ -222,7 +244,7 @@ const EmailVerification = () => {
                     onClick={handleManualRedirect}
                     className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
                   >
-                    Continue to AI Chatbot →
+                    Open AI Chatbot Now →
                   </button>
                 </div>
               </div>
@@ -238,35 +260,48 @@ const EmailVerification = () => {
                 
                 <div>
                   <h3 className="text-2xl font-bold text-red-800 dark:text-red-200 mb-2">
-                    Verification Failed
+                    Verification Issue
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     {message}
                   </p>
                 </div>
 
-                <div className="glass rounded-2xl p-4 border-l-4 border-red-500">
-                  <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">
-                    💡 What to try:
+                <div className="glass rounded-2xl p-4 border-l-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
+                  <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                    💡 Quick Fixes:
                   </h4>
-                  <ul className="text-sm text-red-700 dark:text-red-300 space-y-1 text-left">
-                    <li>• Check your email for a newer verification link</li>
-                    <li>• Make sure you're clicking the latest email</li>
-                    <li>• Try registering again if the link expired</li>
-                    <li>• Contact support if problems persist</li>
+                  <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1 text-left">
+                    <li>• Make sure you clicked the latest verification email</li>
+                    <li>• Try copying and pasting the verification link</li>
+                    <li>• Check if your email is already verified</li>
+                    <li>• Register again if the link has expired</li>
                   </ul>
                 </div>
+
+                {/* Debug information for development */}
+                {import.meta.env.DEV && debugInfo.allParams && (
+                  <div className="glass rounded-2xl p-4 border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20">
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
+                      🔍 Debug Info:
+                    </h4>
+                    <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                      <p><strong>URL:</strong> {debugInfo.fullUrl}</p>
+                      <p><strong>Parameters:</strong> {JSON.stringify(debugInfo.allParams, null, 2)}</p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex space-x-3">
                   <button
                     onClick={handleManualRedirect}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200"
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200"
                   >
-                    Go to Login Page
+                    Go to Chatbot
                   </button>
                   <button
                     onClick={() => window.location.reload()}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200"
+                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200"
                   >
                     Try Again
                   </button>
@@ -278,10 +313,7 @@ const EmailVerification = () => {
 
         <div className="text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Need help? Contact us at{' '}
-            <a href="mailto:support@aichatbot.com" className="text-blue-600 hover:text-blue-500 font-medium">
-              support@aichatbot.com
-            </a>
+            Need help? The verification link should work directly from your email.
           </p>
         </div>
       </div>
